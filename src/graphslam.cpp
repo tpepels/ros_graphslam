@@ -12,6 +12,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	//
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
 	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/scan_node", 1);
+	graph_publish = nh.advertise<visualization_msgs::Marker>("graph_visualizer", 10);
 	//
 	odom_updated = false;
 	scan_updated = false;
@@ -57,6 +58,99 @@ void GraphSlam::spin() {
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
 	}
+}
+;
+
+void GraphSlam::drawPoses(Graph& graph){
+	geometry_msgs::PoseArray poses;
+	visualization_msgs::Marker nodes_message;
+	visualization_msgs::Marker edges_message;
+	poses.header.frame_id = "/odom";
+	nodes_message.header.frame_id = "/odom";
+	edges_message.header.frame_id = "/odom";
+	//
+	nodes_message.scale.x = 0.05;
+	nodes_message.scale.y = 0.05;
+	nodes_message.color.r = 1.0;
+	nodes_message.color.a = 1.0;
+	nodes_message.type = visualization_msgs::Marker::POINTS;
+	nodes_message.ns = "nodes";
+	//
+	edges_message.scale.x = 0.05;
+	edges_message.scale.y = 0.05;
+	edges_message.color.b = 1.0;
+	edges_message.color.a = 1.0;
+	edges_message.type = visualization_msgs::Marker::LINE_LIST;
+	edges_message.ns = "edges";
+	//
+	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
+		geometry_msgs::Pose new_pose;
+		new_pose.position.x = graph->node_list[i].robot_pose.x;
+		new_pose.position.y = graph->node_list[i].robot_pose.y;
+		new_pose.orientation.w = (sqrt(2+2*cos(graph->node_list[i].robot_pose.z)))/2;
+        new_pose.orientation.z = (1*sin(graph->node_list[i].robot_pose.z))/(2*new_pose.orientation.w);
+        poses.poses.push_back(new_pose);
+        //
+		geometry_msgs::Point point;
+		point = new_pose.position;
+		nodes_message.points.push_back(point);
+	}
+	//
+	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
+		geometry_msgs::Point start;
+		geometry_msgs::Point end;
+		//
+		Pose pose = graph->edge_list.parent->pose;
+		start.x = pose.x;
+		start.y = pose.y;
+		//
+		pose = graph->edge_list[i].child->pose;
+		end.x = pose.x;
+		end.y = pose.y;
+		//
+		edges_message.points.push_back(start);
+		edges_message.points.push_back(end);
+	}
+	//
+	graph_publish.publish(nodes_message);
+	graph_publish.publish(edges_message);
+	pose_publish.publish(poses);
+}
+;
+
+void GraphSlam:drawScans(Graph& graph){
+	visualization_msgs::Marker scan_message;
+	scan_message.header.frame_id = "/odom";
+	scan_message.scale.x = 0.005;
+	scan_message.scale.y = 0.005;
+	scan_message.ns = "scans";
+	scan_message.type = visualization_msgs::Marker::POINTS;
+	scan_message.color.g = 1.0;
+	scan_message.color.a = 1.0;
+	//
+	for(unsigned int i = 0; i < nodes.size(); i++) {
+		float angle_min = graph->node_list[i].robot_pose.z + graph->node_list[i].laser_scan.angle_min;
+		float angle_max = graph->node_list[i].robot_pose.z + graph->node_list[i].laser_scan.angle_max;
+		float angle_increment = graph->node_list[i].laser_scan.angle_increment;
+		float current_angle = angle_min;
+		float max_range = graph->node_list[i].laser_scan.range_max;
+		//
+		for(unsigned int j = 0; current_angle <= angle_max - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
+			float range = nodes[i].scan.ranges[j];
+			if(range == max_range){}
+				continue;
+			}
+			//
+			float x = graph->node_list[i].pose.x + cos(current_angle) * range;
+			float y = graph->node_list[i].pose.y + sin(current_angle) * range;
+			//
+			geometry_msgs::Point point;
+			point.x = x;
+			point.y = y;
+			scan_message.points.push_back(point);
+		}
+	}
+	graph_publish.publish(scan_message);
 }
 ;
 
