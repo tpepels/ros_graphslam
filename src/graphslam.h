@@ -5,12 +5,15 @@
 #include "sensor_msgs/LaserScan.h"
 #include "tf/transform_listener.h"
 #include "nav_msgs/Odometry.h"
+//
+#include "graph.h"
 
 using namespace std;
 
 class GraphSlam {
 public:
 	GraphSlam(ros::NodeHandle& nh);
+	~GraphSlam();
 	void spin();
 private:
 	ros::Subscriber laserScan_Sub, odometry_Sub;
@@ -20,6 +23,7 @@ private:
 	sensor_msgs::LaserScan cur_scan;
 	//
 	bool odom_updated, scan_updated, first_scan;
+	Graph graph;
 	//
 	void laserScan_callback(const sensor_msgs::LaserScan& msg);
 	void odom_callback(const nav_msgs::Odometry& msg);

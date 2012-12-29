@@ -3,7 +3,7 @@
 
 using namespace std;
 
-const int MIN_DIST = 0.5;
+const float MIN_DIST = 0.5, MIN_ROT = 0.5;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
@@ -11,7 +11,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	odometry_Sub = nh.subscribe("odom", 100, &GraphSlam::odom_callback, this);
 	//
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
-	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/scan_node", 1);
+	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/pose", 1);
 	graph_publish = nh.advertise<visualization_msgs::Marker>("graph_visualizer", 10);
 	//
 	odom_updated = false;
@@ -20,14 +20,20 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Set the initial pose to 0,0,0
 	cur_pose.x = 0.;
 	cur_pose.y = 0.;
-	cur_pose.t = 0.;
+	//
+	graph = new Graph(0.05, 0.9);
 }
 ;
 
-float GraphSlam::pose_distance(Pose* p1, Pose* p2) {
+~GraphSlam() {
+	delete graph;
+}
+;
+
+float GraphSlam::pose_distance(geometry_msgs::Pose* p1, geometry_msgs::Pose* p2) {
 	return (sqrt((p2->x-p1->x)*(p2->x-p1->x) + (p2->y-p1->y) * (p2->y-p1->y)));
 }
-
+;
 void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 	scan_updated = true;
 	cur_scan = msg;
@@ -36,7 +42,8 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 		odom_updated = true;
 	}
 	first_scan = false;
-};
+}
+;
 
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 	if(scan_updated && cur_pose != null) {
@@ -45,7 +52,8 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 			odom_updated = true;
 		}
 	}
-};
+}
+;
 
 void GraphSlam::spin() {
 	ros::Rate rate(10); // Specify the FSM loop rate in Hz
@@ -53,7 +61,12 @@ void GraphSlam::spin() {
 		ros::spinOnce(); // Need to call this function often to allow ROS to process incoming messages
 		// Check if messages have been received, first_scan is for the scan at the origin
 		if(odom_updated && scan_updated) {
+			graph.addNode(cur_pose, cur_scan);
+			graph.generateMap();
+			map_publish.publish(graph.map);
 			// Call the graph-slam update here
+			odom_updated = false;
+			scan_updated = false;
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
