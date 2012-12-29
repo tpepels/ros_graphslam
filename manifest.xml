@@ -1,0 +1,17 @@
+<package>
+  <description brief="graphslam">
+
+     graphslam
+
+  </description>
+  <author>tom</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/graphslam</url>
+  <depend package="roscpp"/>
+  <depend package="geometry_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="tf"/>
+</package>
+
+
