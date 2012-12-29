@@ -1,7 +1,5 @@
 #include "ros/ros.h"
-#include "sensor_msgs/LaserScan.h"
-#include "geometry_msgs/Pose.h"
-#include "nav_msgs/OccupancyGrid.h"
+#include "graph.h"
 
 using namespace std;
 
@@ -15,7 +13,6 @@ void Graph::Graph(double resolution, double range_threshold) {
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	Node n;
-	//
 	n.pose = pose;
 	n.scan = scan;
 	n.scan_grid = scanToOccGrid(scan, pose);
@@ -25,7 +22,15 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	e.parent = last_node;
 	e.child = n;
 	edge_list.push_back(e);
-};
+    last_node = n;
+}
+;
+
+// Combine the scan-information in the nodes into a complete map!
+void Graph::generateMap() {
+
+}
+;
 
 // Take a scan as input, generate a small, local occupancy grid
 ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose){
