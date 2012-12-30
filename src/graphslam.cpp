@@ -113,7 +113,7 @@ void GraphSlam::drawPoses(){
 	//
 	edges_message.scale.x = 0.05;
 	edges_message.scale.y = 0.05;
-	edges_message.color.b = 1.0;
+	edges_message.color.g = 1.0;
 	edges_message.color.a = 1.0;
 	edges_message.type = visualization_msgs::Marker::LINE_LIST;
 	edges_message.ns = "edges";
@@ -166,15 +166,15 @@ void GraphSlam::drawScans(){
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
 		float theta = tf::getYaw(graph->node_list[i].robot_pose.orientation);
 		//
-		float angle_min = theta + graph->node_list[i].laser_scan.angle_min;
-		float angle_max = theta + graph->node_list[i].laser_scan.angle_max;
+		float minimal_angle = theta + graph.node_list[i].laser_scan.angle_min;
+		float current_angle = minimal_angle;
+		float maximal_angle = theta + graph.node_list[i].laser_scan.angle_max;
 		//
-		float angle_increment = graph->node_list[i].laser_scan.angle_increment;
-		float current_angle = angle_min;
-		float max_range = graph->node_list[i].laser_scan.range_max;
+		float angle_increment = graph.node_list[i].laser_scan.angle_increment;
+		float max_range = graph.node_list[i].laser_scan.range_max;
 		//
-		for(unsigned int j = 0; current_angle <= angle_max - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
-			float range = graph->node_list[i].laser_scan.ranges[j];
+		for(unsigned int j = 0; current_angle <= maximal_angle - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
+			float range = nodes[i].scan.ranges[j];
 			if(range == max_range){
 				continue;
 			}
