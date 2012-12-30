@@ -35,7 +35,7 @@ class Graph {
 public:
 	vector<Node> node_list;
 	vector<Edge> edge_list;
-	OccupancyGrid map;
+	OccupancyGrid cur_map;
 	//
 	Graph(double resolution, double range_threshold);
 	void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
