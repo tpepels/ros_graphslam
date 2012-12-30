@@ -30,8 +30,6 @@ private:
 	Graph* graph;
 	//
 	void laserScan_callback(const sensor_msgs::LaserScan& msg);
-	float pose_distance(Pose p1, Pose p2);
-	float rotation_distance(Pose p1, Pose p2);
 	void odom_callback(const nav_msgs::Odometry& msg);
 	void drawPoses();
 	void drawScans();

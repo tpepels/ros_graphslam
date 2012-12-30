@@ -1,4 +1,3 @@
-#include "ros/ros.h"
 #include "graphslam.h"
 
 using namespace std;
@@ -22,12 +21,13 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Set the initial pose to 0,0,0
 	cur_pose.position.x = 0.;
 	cur_pose.position.y = 0.;
+	cur_pose.orientation.w = 1.0;
 	//
 	graph = new Graph(0.05, 0.9);
 }
 ;
 
-~GraphSlam() {
+GraphSlam::~GraphSlam() {
 	delete graph;
 }
 ;
@@ -44,29 +44,15 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 }
 ;
 
-float GraphSlam::pose_distance(Pose p1, Pose p2) {
-	return (sqrt(pow(p2.position.x - p1.position.x), 2) + pow((p2.position.y - p1.position.y), 2));
-}
-;
-
-float GraphSlam::rotation_distance(Pose p1, Pose p2) {
-	float dist = tf::getYaw(p1.orientation) - tf::getYaw(p2.orientation);
-	// Flip the distance if negative
-	if (dist < 0) {
-		dist = -dist;
-	}
-
-	// Return distance between PI and -PI
-	if (dist > PI) {
-		return 2 * PI - dist;
-	}
-	return dist;
-}
-;
-
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 	if(scan_updated && &cur_pose != NULL) {
-		if(this->pose_distance(cur_pose, msg.pose.pose) >= MIN_DIST || this->rotation_distance(cur_pose, msg.pose.pose) <= MIN_ROT) {
+		float new_x = msg.pose.pose.position.x, new_y = msg.pose.pose.position.y;
+		float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
+		float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(msg.pose.pose.orientation));
+		if (rot_dist > PI) {
+			rot_dist = 2 * PI - rot_dist;
+		}
+		if(distance >= MIN_DIST || rot_dist >= MIN_ROT) {
 			cur_pose = msg.pose.pose;
 			odom_updated = true;
 		}
@@ -166,15 +152,15 @@ void GraphSlam::drawScans(){
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
 		float theta = tf::getYaw(graph->node_list[i].robot_pose.orientation);
 		//
-		float minimal_angle = theta + graph.node_list[i].laser_scan.angle_min;
+		float minimal_angle = theta + graph->node_list[i].laser_scan.angle_min;
 		float current_angle = minimal_angle;
-		float maximal_angle = theta + graph.node_list[i].laser_scan.angle_max;
+		float maximal_angle = theta + graph->node_list[i].laser_scan.angle_max;
 		//
-		float angle_increment = graph.node_list[i].laser_scan.angle_increment;
-		float max_range = graph.node_list[i].laser_scan.range_max;
+		float angle_increment = graph->node_list[i].laser_scan.angle_increment;
+		float max_range = graph->node_list[i].laser_scan.range_max;
 		//
 		for(unsigned int j = 0; current_angle <= maximal_angle - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
-			float range = nodes[i].scan.ranges[j];
+			float range = graph->node_list[i].laser_scan.ranges[j];
 			if(range == max_range){
 				continue;
 			}

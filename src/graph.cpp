@@ -1,4 +1,3 @@
-#include "ros/ros.h"
 #include "graph.h"
 
 using namespace std;
@@ -7,21 +6,21 @@ const int N_INF = -9999999;
 const int P_INF = 9999999;
 const double PI = 3.141592654;
 
-void Graph::Graph(double resolution, double range_threshold) {
+Graph::Graph(double resolution, double range_threshold) {
 	this->resolution = resolution;
 	this->range_threshold = range_threshold;
 };
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	Node n;
-	n.pose = pose;
-	n.scan = scan;
+	n.robot_pose = pose;
+	n.laser_scan = scan;
 	n.scan_grid = scanToOccGrid(scan, pose);
 	node_list.push_back(n);
 	// TODO: Match the new node's scans to previous scans and add edges accordingly
 	Edge e;
-	e.parent = last_node;
-	e.child = n;
+	e.parent = &node_list[node_list.size() - 2];
+	e.child = &node_list[node_list.size() - 1];
 	edge_list.push_back(e);
     last_node = n;
 }
@@ -33,18 +32,18 @@ void Graph::generateMap() {
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node* node = nodes[i];
-        if (xmax < (node->x + (node->scan_grid.xmax)) * resolution)
-            xmax = (node->x + (node->scan_grid.xmax)) * resolution;
+        Node* node = &node_list[i];
+        if (xmax < (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution)
+            xmax = (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution;
 
-        if (xmin > (node->x - (node->scan_grid.xmin)) * resolution)
-            xmin = (node->x - (node->scan_grid.xmin)) * resolution;
+        if (xmin > (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution)
+            xmin = (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution;
 
-        if (ymax < (node->y + (node->scan_grid.ymax)) * resolution)
-            ymax = (node->y + (node->scan_grid.ymax)) * resolution;
+        if (ymax < (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution)
+            ymax = (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution;
 
-        if (ymin > (node->y - (node->scan_grid.ymin)) * resolution)
-            ymin = (node->y - (node->scan_grid.ymin)) * resolution;
+        if (ymin > (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution)
+            ymin = (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution;
     }
     // Map size
     double map_height = (ymax - ymin) / resolution;
@@ -52,7 +51,7 @@ void Graph::generateMap() {
     double map_size = map_height * map_width;
     //
     cur_map.header.frame_id = "/odom";
-    cur_map.header.stamp = ros::Time()::now();
+    cur_map.header.stamp = ros::Time().now();
     cur_map.info.height = map_height;
     cur_map.info.width = map_width;
     cur_map.info.resolution = resolution;
@@ -65,14 +64,14 @@ void Graph::generateMap() {
     vector<int> pos_free (map_size, 0);
     vector<int> pos_blocked (map_size, 0);
     // Go through all nodes' scan-grids and maintain the position information for each
-    for (unsigned int i = 0; i < node_list.size; i++)
+    for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node* node = node_list[i];
-        int node_x = round((node->x-xmin)/resolution)-node->scanMap.left;
-        int node_y = round((node->y-ymin)/resolution)-node->scanMap.down;
+        Node* node = &node_list[i];
+        int node_x = round((node->robot_pose.position.x - xmin) / resolution) -node->scan_grid.xmin;
+        int node_y = round((node->robot_pose.position.y - ymin) / resolution) -node->scan_grid.ymin;
         // Go through the local map, and count the occupancies for the global map
-        for (unsigned int j = 0; j < node->scan_grid.height; j++) {
-            for (unsigned int k = 0; k < node->scan_grid.width; k++) {
+        for (int j = 0; j < node->scan_grid.height; j++) {
+            for (int k = 0; k < node->scan_grid.width; k++) {
                 // Index in the global map
                 int global_index = (node_y + j) * map_width + node_x + k;
                 pos_seen[global_index]++;
@@ -112,33 +111,32 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
 	double angle_incr = scan.angle_increment;
 	// First we need to know the size and bounds of the grid.
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
-    double scan_angle, scan_x, scan_y, min_angle = scan.angle_min;
+    double scan_angle, min_angle = scan.angle_min;
     int num_scans = scan.ranges.size();
-    double pose_theta = tf::getYaw(pose);
+    double pose_theta = tf::getYaw(pose.orientation);
     // Get the scan positions the bound the grid
     for (int i = 0; i < num_scans; i++)
     {
         scan_angle = pose_theta + min_angle + i * angle_incr;
-        if (ymax < pose.y + scan.ranges[i] * sin(scan_angle))
-            ymax = pose.y + scan.ranges[i] * sin(scan_angle);
-        if (xmax < pose.x + scan.ranges[i] * cos(scan_angle))
-            xmax = pose.x + scan.ranges[i] * cos(scan_angle);
-        if (ymin > pose.y + scan.ranges[i] * sin(scan_angle))
-            ymin = pose.y + scan.ranges[i] * sin(scan_angle);
-        if (xmin > pose.x + scan.ranges[i] * cos(scan_angle))
-            xmin = pose.x + scan.ranges[i] * cos(scan_angle);
+        if (ymax < pose.position.y + scan.ranges[i] * sin(scan_angle))
+            ymax = pose.position.y + scan.ranges[i] * sin(scan_angle);
+        if (xmax < pose.position.x + scan.ranges[i] * cos(scan_angle))
+            xmax = pose.position.x + scan.ranges[i] * cos(scan_angle);
+        if (ymin > pose.position.y + scan.ranges[i] * sin(scan_angle))
+            ymin = pose.position.y + scan.ranges[i] * sin(scan_angle);
+        if (xmin > pose.position.x + scan.ranges[i] * cos(scan_angle))
+            xmin = pose.position.x + scan.ranges[i] * cos(scan_angle);
     }
     // Initialize the grid, set the bounds relative to the odometry
-    new_grid.ymax = round((ymax - pose.y) / resolution);
-    new_grid.ymin = round((pose.y - ymin) / resolution);
-    new_grid.xmax = round((xmax - pose.x) / resolution);
-    new_grid.xmin = round((pose.x - xmin) / resolution);
+    new_grid.ymax = round((ymax - pose.position.y) / resolution);
+    new_grid.ymin = round((pose.position.y - ymin) / resolution);
+    new_grid.xmax = round((xmax - pose.position.x) / resolution);
+    new_grid.xmin = round((pose.position.x - xmin) / resolution);
     // Size of the grid can be computed with the bounds
     new_grid.height = new_grid.ymax + new_grid.ymin;
     new_grid.width = new_grid.xmin + new_grid.xmax;
     // Set the grid to the correct size
-    new_grid.resolution = this->resolution;
-    int grid_size = new_grid.height * new_grid.width
+    int grid_size = new_grid.height * new_grid.width;
     new_grid.grid.resize(grid_size);
     // Set each cell to unknown space, later we will it with obstacles and known space
     for (int i= 0; i < grid_size; i++) {
@@ -150,7 +148,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
    	int row, col;
     for (int i = 0; i < num_scans; i++)
     {
-        measurement = node->scan.ranges[i];
+        measurement = scan.ranges[i];
         // Check if out of range, dont place an obstacle on the grid in this case
         if (measurement > max_range)
             continue;
@@ -166,8 +164,8 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
     // Use triangulation to fill the grid covered by the scan with known space
     double range, scan_dist, scan_theta, scan_end;
     int index, scan_index;
-    for (unsigned int i = 0; i < new_grid.height; i++) {
-        for (unsigned int j = 0; j < new_grid.width; j++) {
+    for (int i = 0; i < new_grid.height; i++) {
+        for (int j = 0; j < new_grid.width; j++) {
             index = i * new_grid.width + j;
             // We can skip positions we know are occupied
             if (new_grid.grid[index] == 100)

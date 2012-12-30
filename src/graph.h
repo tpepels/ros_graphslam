@@ -2,7 +2,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
-
+#include "tf/transform_listener.h"
 
 using namespace std;
 
@@ -13,8 +13,6 @@ struct ScanGrid {
 	int ymax, ymin, xmax, xmin;
 	// The grid, stored in row-major order
 	vector<double> grid;
-	// The resolution of the grid
-	double grid_resolution;
 };
 
 // A node in the graph, contains its own little occupancygrid to later be combined with all nodes in the map
@@ -36,7 +34,7 @@ class Graph {
 	public:
 		vector<Node> node_list;
 		vector<Edge> edge_list;
-		OccupancyGrid cur_map;
+		nav_msgs::OccupancyGrid cur_map;
 		//
 		Graph(double resolution, double range_threshold);
 		void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
