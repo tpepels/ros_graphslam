@@ -102,7 +102,6 @@ void Graph::generateMap() {
         } else {
             cur_map.data[i] = -1;
         }
-
     }
 }
 ;

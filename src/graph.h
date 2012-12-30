@@ -3,6 +3,7 @@
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 
+
 using namespace std;
 
 struct ScanGrid {
@@ -44,5 +45,5 @@ class Graph {
 		Node last_node;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose);
-	
+
 };
