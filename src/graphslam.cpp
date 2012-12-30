@@ -24,6 +24,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	cur_pose.orientation.w = 1.0;
 	//
 	graph = new Graph(0.05, 0.9);
+	ROS_INFO("GraphSlam Constructor finished");
 }
 ;
 
@@ -38,6 +39,7 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 	cur_scan = msg;
 	// This means the robot is at the origin.
 	if(!odom_updated && first_scan) {
+		ROS_INFO("GraphSlam first scan");
 		odom_updated = true;
 	}
 	first_scan = false;
@@ -45,7 +47,7 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 ;
 
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
-	if(scan_updated && &cur_pose != NULL) {
+	if(scan_updated) {
 		float new_x = msg.pose.pose.position.x, new_y = msg.pose.pose.position.y;
 		float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
 		float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(msg.pose.pose.orientation));
@@ -53,6 +55,7 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 			rot_dist = 2 * PI - rot_dist;
 		}
 		if(distance >= MIN_DIST || rot_dist >= MIN_ROT) {
+			ROS_INFO("GraphSlam odom dist ok!");
 			cur_pose = msg.pose.pose;
 			odom_updated = true;
 		}
@@ -66,9 +69,14 @@ void GraphSlam::spin() {
 		ros::spinOnce(); // Need to call this function often to allow ROS to process incoming messages
 		// Check if messages have been received, first_scan is for the scan at the origin
 		if(odom_updated && scan_updated) {
+			ROS_INFO("GraphSlam odom and scan updated!");
+			
 			graph->addNode(cur_pose, cur_scan);
-			graph->generateMap();
-			map_publish.publish(graph->cur_map);
+			nav_msgs::OccupancyGrid cur_map;
+			graph->generateMap(cur_map);
+			ROS_INFO("GraphSlam Map generated");
+			map_publish.publish(cur_map);
+			ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
 			scan_updated = false;

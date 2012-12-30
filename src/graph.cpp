@@ -7,11 +7,13 @@ const int P_INF = 9999999;
 const double PI = 3.141592654;
 
 Graph::Graph(double resolution, double range_threshold) {
+    ROS_INFO("Graph entering constructor");
 	this->resolution = resolution;
 	this->range_threshold = range_threshold;
 };
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
+    ROS_INFO("Graph entering addNode");
 	Node n;
 	n.robot_pose = pose;
 	n.laser_scan = scan;
@@ -23,32 +25,36 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	e.child = &node_list[node_list.size() - 1];
 	edge_list.push_back(e);
     last_node = n;
+    ROS_INFO("Graph finished addNode");
 }
 ;
 
 // Combine the scan-grids in the nodes into a complete map!
-void Graph::generateMap() {
+void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
+    ROS_INFO("Graph entering generateMap");
     // First we need to know the outer-bounds of the map
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node* node = &node_list[i];
-        if (xmax < (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution)
-            xmax = (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution;
+        Node node = node_list[i];
+        if (xmax < (node.robot_pose.position.x + (node.scan_grid.xmax)) * resolution)
+            xmax = (node.robot_pose.position.x + (node.scan_grid.xmax)) * resolution;
 
-        if (xmin > (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution)
-            xmin = (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution;
+        if (xmin > (node.robot_pose.position.x - (node.scan_grid.xmin)) * resolution)
+            xmin = (node.robot_pose.position.x - (node.scan_grid.xmin)) * resolution;
 
-        if (ymax < (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution)
-            ymax = (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution;
+        if (ymax < (node.robot_pose.position.y + (node.scan_grid.ymax)) * resolution)
+            ymax = (node.robot_pose.position.y + (node.scan_grid.ymax)) * resolution;
 
-        if (ymin > (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution)
-            ymin = (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution;
+        if (ymin > (node.robot_pose.position.y - (node.scan_grid.ymin)) * resolution)
+            ymin = (node.robot_pose.position.y - (node.scan_grid.ymin)) * resolution;
     }
+    ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
     // Map size
     double map_height = (ymax - ymin) / resolution;
     double map_width = (xmax - xmin) / resolution;
-    double map_size = map_height * map_width;
+    unsigned int map_size = (unsigned int)(map_height * map_width);
+    ROS_INFO("Graph map size: %d", map_size);
     //
     cur_map.header.frame_id = "/odom";
     cur_map.header.stamp = ros::Time().now();
@@ -59,25 +65,26 @@ void Graph::generateMap() {
     cur_map.data.resize(map_size);
     // This vector counts how many times a map-position was seen in the graph
     // Later we use this to compute the certainty that a position is an obstacle
-    vector<int> pos_seen (map_size, 0);
+    vector<unsigned int> pos_seen (map_size, 0);
     // These will count how many times a position was blocked/free. All others will be unknown
-    vector<int> pos_free (map_size, 0);
-    vector<int> pos_blocked (map_size, 0);
+    vector<unsigned int> pos_free (map_size, 0);
+    vector<unsigned int> pos_blocked (map_size, 0);
+    ROS_INFO("Graph combining local grids");
     // Go through all nodes' scan-grids and maintain the position information for each
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node* node = &node_list[i];
-        int node_x = round((node->robot_pose.position.x - xmin) / resolution) -node->scan_grid.xmin;
-        int node_y = round((node->robot_pose.position.y - ymin) / resolution) -node->scan_grid.ymin;
+        Node node = node_list[i];
+        int node_x = round((node.robot_pose.position.x - xmin) / resolution) - node.scan_grid.xmin;
+        int node_y = round((node.robot_pose.position.y - ymin) / resolution) - node.scan_grid.ymin;
         // Go through the local map, and count the occupancies for the global map
-        for (int j = 0; j < node->scan_grid.height; j++) {
-            for (int k = 0; k < node->scan_grid.width; k++) {
+        for (int j = 0; j < node.scan_grid.height; j++) {
+            for (int k = 0; k < node.scan_grid.width; k++) {
                 // Index in the global map
                 int global_index = (node_y + j) * map_width + node_x + k;
                 pos_seen[global_index]++;
                 // The value of the local grid
-                int local_index = j * node->scan_grid.width + k;
-                int value = node->scan_grid.grid[local_index];
+                int local_index = j * node.scan_grid.width + k;
+                int value = node.scan_grid.grid[local_index];
                 //
                 if (value == 100) // Position is blocked
                     pos_blocked[global_index]++;
@@ -87,6 +94,7 @@ void Graph::generateMap() {
             }
         }
     }
+    ROS_INFO("Graph determining occupied/free/unknown");
     // Now, we can update the global map according to what we saw in the local maps
     for(unsigned int i = 0; i < map_size; i++) {
         // The position was free more often than blocked
@@ -102,11 +110,13 @@ void Graph::generateMap() {
             cur_map.data[i] = -1;
         }
     }
+    ROS_INFO("Graph finished generateMap");
 }
 ;
 
 // Take a scan as input, generate a small, local occupancy grid
 ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose){
+    ROS_INFO("Graph entering scanToOccGrid");
 	ScanGrid new_grid;
 	double angle_incr = scan.angle_increment;
 	// First we need to know the size and bounds of the grid.
@@ -190,5 +200,6 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
                 new_grid.grid[index] = -1;
         }
     }
+    ROS_INFO("Graph finished scanToOccGrid");
     return new_grid;
 };
