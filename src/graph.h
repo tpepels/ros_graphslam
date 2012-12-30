@@ -32,16 +32,17 @@ struct Edge {
 
 class Graph {
 
-public:
-	vector<Node> node_list;
-	vector<Edge> edge_list;
-	OccupancyGrid cur_map;
-	//
-	Graph(double resolution, double range_threshold);
-	void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
-	void generateMap();
-private:
-	Node last_node;
-	double resolution, range_threshold;
-	ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose);
+	public:
+		vector<Node> node_list;
+		vector<Edge> edge_list;
+		OccupancyGrid cur_map;
+		//
+		Graph(double resolution, double range_threshold);
+		void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
+		void generateMap();
+	private:
+		Node last_node;
+		double resolution, range_threshold;
+		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose);
+	
 };

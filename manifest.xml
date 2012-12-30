@@ -4,7 +4,7 @@
      graphslam
 
   </description>
-  <author>tom</author>
+  <author>Tom Pepels</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/graphslam</url>
@@ -12,6 +12,9 @@
   <depend package="geometry_msgs"/>
   <depend package="sensor_msgs"/>
   <depend package="tf"/>
+  <depend package="turtlebot_node"/>
+  <depend package="visualization_msgs"/>
+  <depend package="nav_msgs"/>
 </package>
 
 
