@@ -24,7 +24,7 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	e.parent = &node_list[node_list.size() - 2];
 	e.child = &node_list[node_list.size() - 1];
 	edge_list.push_back(e);
-    last_node = n;
+    last_node = &n;
     ROS_INFO("Graph finished addNode");
 }
 ;
@@ -34,26 +34,27 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     ROS_INFO("Graph entering generateMap");
     // First we need to know the outer-bounds of the map
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
+    Node * node;
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node node = node_list[i];
-        if (xmax < (node.robot_pose.position.x + (node.scan_grid.xmax)) * resolution)
-            xmax = (node.robot_pose.position.x + (node.scan_grid.xmax)) * resolution;
+        node = &node_list[i];
+        if (xmax < (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution)
+            xmax = (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution;
 
-        if (xmin > (node.robot_pose.position.x - (node.scan_grid.xmin)) * resolution)
-            xmin = (node.robot_pose.position.x - (node.scan_grid.xmin)) * resolution;
+        if (xmin > (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution)
+            xmin = (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution;
 
-        if (ymax < (node.robot_pose.position.y + (node.scan_grid.ymax)) * resolution)
-            ymax = (node.robot_pose.position.y + (node.scan_grid.ymax)) * resolution;
+        if (ymax < (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution)
+            ymax = (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution;
 
-        if (ymin > (node.robot_pose.position.y - (node.scan_grid.ymin)) * resolution)
-            ymin = (node.robot_pose.position.y - (node.scan_grid.ymin)) * resolution;
+        if (ymin > (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution)
+            ymin = (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution;
     }
     ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
     // Map size
     double map_height = (ymax - ymin) / resolution;
     double map_width = (xmax - xmin) / resolution;
-    unsigned int map_size = (unsigned int)(map_height * map_width);
+    unsigned int map_size = (unsigned int)round(map_height * map_width);
     ROS_INFO("Graph map size: %d", map_size);
     //
     cur_map.header.frame_id = "/odom";
@@ -63,33 +64,45 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     cur_map.info.resolution = resolution;
     //
     cur_map.data.resize(map_size);
+    geometry_msgs::Pose origin;
+    origin.orientation.x=0;
+    origin.orientation.y=0;
+    origin.orientation.z=0;
+    origin.orientation.w=1;
+    origin.position.x=xmin;
+    origin.position.y=ymin;
+    origin.position.z=0;
+    cur_map.info.origin = origin;
     // This vector counts how many times a map-position was seen in the graph
     // Later we use this to compute the certainty that a position is an obstacle
-    vector<unsigned int> pos_seen (map_size, 0);
+    vector<unsigned int> pos_seen;
+    pos_seen.resize(map_size);
     // These will count how many times a position was blocked/free. All others will be unknown
-    vector<unsigned int> pos_free (map_size, 0);
-    vector<unsigned int> pos_blocked (map_size, 0);
+    vector<unsigned int> pos_fr (map_size);
+    pos_fr.resize(map_size);
+    vector<unsigned int> pos_blocked (map_size);
+    pos_blocked.resize(map_size);
     ROS_INFO("Graph combining local grids");
     // Go through all nodes' scan-grids and maintain the position information for each
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        Node node = node_list[i];
-        int node_x = round((node.robot_pose.position.x - xmin) / resolution) - node.scan_grid.xmin;
-        int node_y = round((node.robot_pose.position.y - ymin) / resolution) - node.scan_grid.ymin;
+        node = &node_list[i];
+        int node_x = round((node->robot_pose.position.x - xmin) / resolution) - node->scan_grid.xmin;
+        int node_y = round((node->robot_pose.position.y - ymin) / resolution) - node->scan_grid.ymin;
         // Go through the local map, and count the occupancies for the global map
-        for (int j = 0; j < node.scan_grid.height; j++) {
-            for (int k = 0; k < node.scan_grid.width; k++) {
+        for (int j = 0; j < node->scan_grid.height; j++) {
+            for (int k = 0; k < node->scan_grid.width; k++) {
                 // Index in the global map
                 int global_index = (node_y + j) * map_width + node_x + k;
                 pos_seen[global_index]++;
                 // The value of the local grid
-                int local_index = j * node.scan_grid.width + k;
-                int value = node.scan_grid.grid[local_index];
+                int local_index = j * node->scan_grid.width + k;
+                int value = node->scan_grid.grid[local_index];
                 //
                 if (value == 100) // Position is blocked
                     pos_blocked[global_index]++;
                 if (value == 0) // Position is unoccupied
-                    pos_free[global_index]++;
+                    pos_fr[global_index]++;
 
             }
         }
@@ -98,11 +111,11 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     // Now, we can update the global map according to what we saw in the local maps
     for(unsigned int i = 0; i < map_size; i++) {
         // The position was free more often than blocked
-        if(pos_free[i] > pos_blocked[i])
+        if(pos_fr[i] > pos_blocked[i])
             cur_map.data[i] = 0;
-        else if (pos_free[i] < pos_blocked[i])
+        else if (pos_fr[i] < pos_blocked[i])
             cur_map.data[i] = 100;
-        else if (pos_free[i] == pos_blocked[i]) {
+        else if (pos_fr[i] == pos_blocked[i]) {
             // The position was as often blocked as free, use the seen to break the tie
             // TODO: What to do here? Set to unknown so it gets visited again?
             cur_map.data[i] = -1;

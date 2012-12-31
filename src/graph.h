@@ -25,8 +25,8 @@ struct Node {
 
 // An edge represents the connection between two nodes
 struct Edge {
-	Node* parent;
-	Node* child;	
+	Node * parent;
+	Node * child;	
 };
 
 class Graph {
@@ -39,7 +39,7 @@ class Graph {
 		void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 	private:
-		Node last_node;
+		Node * last_node;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose);
 

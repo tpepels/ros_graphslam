@@ -5,5 +5,5 @@
   <node pkg="stage" type="stageros" name="stageros" args="$(find turtlebot_slam)/world/swarmlab_single_turtle.world" respawn="false">
   	<param name="base_watchdog_timeout" value=".2"/>
   </node>
-  <node pkg="graphslam" type="graphslam" name="graphslam" output="screen"/>
+  <node pkg="graphslam" type="graphslam" name="graphslam" output="screen" launch-prefix="valgrind"/>
 </launch>

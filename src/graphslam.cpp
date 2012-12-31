@@ -70,7 +70,6 @@ void GraphSlam::spin() {
 		// Check if messages have been received, first_scan is for the scan at the origin
 		if(odom_updated && scan_updated) {
 			ROS_INFO("GraphSlam odom and scan updated!");
-			
 			graph->addNode(cur_pose, cur_scan);
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
