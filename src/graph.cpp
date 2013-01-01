@@ -56,8 +56,8 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     double map_height = (ymax - ymin) / resolution;
     double map_width = (xmax - xmin) / resolution;
     // Increase the size of the map slightly so we don't run into any rounding errors
-    map_width++;
-    map_height++;
+    map_width += 2;
+    map_height += 2;
     unsigned int map_size = (unsigned int) round(map_height * map_width);
     ROS_INFO("Graph map size: %d", map_size);
     //

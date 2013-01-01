@@ -67,7 +67,7 @@ void GraphSlam::spin() {
 	ros::Rate rate(10); // Specify the FSM loop rate in Hz
 	while (ros::ok()) { // Keep spinning loop until user presses Ctrl+C
 		ros::spinOnce(); // Need to call this function often to allow ROS to process incoming messages
-		// Check if messages have been received, first_scan is for the scan at the origin
+		// Check if messages have been received
 		if(odom_updated && scan_updated) {
 			ROS_INFO("GraphSlam odom and scan updated!");
 			graph->addNode(cur_pose, cur_scan);
@@ -75,6 +75,7 @@ void GraphSlam::spin() {
 			graph->generateMap(cur_map);
 			ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
+			this->drawPoses();
 			ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
@@ -97,44 +98,30 @@ void GraphSlam::drawPoses(){
 	edges_message.header.frame_id = "/odom";
 	edges_message.header.stamp = ros::Time().now();
 	//
-	nodes_message.scale.x = 0.05;
-	nodes_message.scale.y = 0.05;
-	nodes_message.color.r = 1.0;
-	nodes_message.color.a = 1.0;
-	nodes_message.type = visualization_msgs::Marker::POINTS;
-	nodes_message.ns = "nodes";
-	//
-	edges_message.scale.x = 0.05;
-	edges_message.scale.y = 0.05;
+	edges_message.scale.x = 0.01;
+	edges_message.scale.y = 0.01;
 	edges_message.color.g = 1.0;
 	edges_message.color.a = 1.0;
 	edges_message.type = visualization_msgs::Marker::LINE_LIST;
 	edges_message.ns = "edges";
-	//
+	// Publish all poses in the graph!
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
-		geometry_msgs::Pose new_pose;
-		new_pose.position = graph->node_list[i].robot_pose.position;
-		new_pose.orientation = graph->node_list[i].robot_pose.orientation;
+		geometry_msgs::Pose new_pose (graph->node_list[i].robot_pose);
         poses.poses.push_back(new_pose);
-        //
-		geometry_msgs::Point point;
-		point = new_pose.position;
-		nodes_message.points.push_back(point);
 	}
-	pose_publish.publish(poses);	
-	graph_publish.publish(nodes_message);
-	//
+	pose_publish.publish(poses);
+	// Publish the edges between all poses
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		geometry_msgs::Point start;
+		//
+		Pose * pose = &graph->edge_list[i].parent->robot_pose;
+		start.x = pose->position.x;
+		start.y = pose->position.y;
+		//
 		geometry_msgs::Point end;
-		//
-		Pose pose = graph->edge_list[i].parent->robot_pose;
-		start.x = pose.position.x;
-		start.y = pose.position.y;
-		//
-		pose = graph->edge_list[i].child->robot_pose;
-		end.x = pose.position.x;
-		end.y = pose.position.y;
+		pose = &graph->edge_list[i].child->robot_pose;
+		end.x = pose->position.x;
+		end.y = pose->position.y;
 		//
 		edges_message.points.push_back(start);
 		edges_message.points.push_back(end);
