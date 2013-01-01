@@ -114,9 +114,15 @@ void GraphSlam::drawPoses(){
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		geometry_msgs::Point start;
 		//
-		Pose * pose = &graph->edge_list[i].parent->robot_pose;
-		start.x = pose->position.x;
-		start.y = pose->position.y;
+		Pose * pose;
+		if(i > 0) { // First node has no child
+			pose = &graph->edge_list[i].parent->robot_pose;
+			start.x = pose->position.x;
+			start.y = pose->position.y;
+		} else {
+			start.x = 0;
+			start.y = 0;
+		}
 		//
 		geometry_msgs::Point end;
 		pose = &graph->edge_list[i].child->robot_pose;
@@ -125,6 +131,7 @@ void GraphSlam::drawPoses(){
 		//
 		edges_message.points.push_back(start);
 		edges_message.points.push_back(end);
+		pose = 0;
 	}
 	//
 	graph_publish.publish(edges_message);

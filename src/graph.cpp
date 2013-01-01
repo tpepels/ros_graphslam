@@ -19,6 +19,7 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	n.laser_scan = scan;
 	n.scan_grid = scanToOccGrid(scan, pose);
 	node_list.push_back(n);
+    ROS_INFO("Graph Added node with x: %f, y: %f.", pose.position.x, pose.position.y);
 	// TODO: Match the new node's scans to previous scans and add edges accordingly
 	Edge e;
 	e.parent = &node_list[node_list.size() - 2];
@@ -33,29 +34,30 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     ROS_INFO("Graph entering generateMap");
     // First we need to know the outer-bounds of the map
-    double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
+    double xmax = N_INF, xmin = P_INF, ymax = N_INF, ymin = P_INF;
     Node * node;
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
         node = &node_list[i];
         float x = node->robot_pose.position.x, y = node->robot_pose.position.y;
-        if (xmax < (x + (node->scan_grid.xmax)) * resolution)
-            xmax = (x + (node->scan_grid.xmax)) * resolution;
+        if (xmax < x + (node->scan_grid.xmax * resolution))
+            xmax = x + (node->scan_grid.xmax * resolution);
 
-        if (xmin > (x - (node->scan_grid.xmin)) * resolution)
-            xmin = (x - (node->scan_grid.xmin)) * resolution;
+        if (xmin > x - (node->scan_grid.xmin * resolution))
+            xmin = x - (node->scan_grid.xmin * resolution);
 
-        if (ymax < (y + (node->scan_grid.ymax)) * resolution)
-            ymax = (y + (node->scan_grid.ymax)) * resolution;
+        if (ymax < y + (node->scan_grid.ymax * resolution))
+            ymax = y + (node->scan_grid.ymax * resolution);
 
-        if (ymin > (y - (node->scan_grid.ymin)) * resolution)
-            ymin = (y - (node->scan_grid.ymin)) * resolution;
+        if (ymin > y - (node->scan_grid.ymin * resolution))
+            ymin = y - (node->scan_grid.ymin * resolution);
     }
     ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
     // Map size
     double map_height = (ymax - ymin) / resolution;
     double map_width = (xmax - xmin) / resolution;
     // Increase the size of the map slightly so we don't run into any rounding errors
+    // Why 2? Because 1 and 0 didn't work :)
     map_width += 2;
     map_height += 2;
     unsigned int map_size = (unsigned int) round(map_height * map_width);
@@ -78,13 +80,10 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     cur_map.info.origin = origin;
     // This vector counts how many times a map-position was seen in the graph
     // Later we use this to compute the certainty that a position is an obstacle
-    vector<unsigned int> pos_seen;
-    pos_seen.resize(map_size);
+    vector<unsigned int> pos_seen (map_size, 0);
     // These will count how many times a position was blocked/free. All others will be unknown
-    vector<unsigned int> pos_fr (map_size);
-    pos_fr.resize(map_size);
-    vector<unsigned int> pos_blocked (map_size);
-    pos_blocked.resize(map_size);
+    vector<unsigned int> pos_fr (map_size, 0);
+    vector<unsigned int> pos_blocked (map_size, 0);
     ROS_INFO("Graph combining local grids");
     // Go through all nodes' scan-grids and maintain the position information for each
     for (unsigned int i = 0; i < node_list.size(); i++)
@@ -98,33 +97,34 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
             for (int k = 0; k < node->scan_grid.width; k++) {
                 // Index in the global map
                 int global_index = (map_width * (node_y + j) + k) + node_x;
-                pos_seen[global_index]++;
                 // The value of the local grid
                 int local_index = (j * node->scan_grid.width) + k;
                 int value = node->scan_grid.grid[local_index];
                 //
-                if (value == 100) // Position is blocked
+                if (value == 100) { // Position is blocked
                     pos_blocked[global_index]++;
-                if (value == 0) // Position is unoccupied
+                    pos_seen[global_index]++;
+                }
+                if (value == 0) {// Position is unoccupied
                     pos_fr[global_index]++;
+                    pos_seen[global_index]++;
+                }
             }
         }
     }
     ROS_INFO("Graph determining occupied/free/unknown");
     // Now, we can update the global map according to what we saw in the local maps
     for(unsigned int i = 0; i < map_size; i++) {
-        // The position was free more often than blocked
-        if(pos_fr[i] > pos_blocked[i])
-            cur_map.data[i] = 0;
-        else if (pos_fr[i] < pos_blocked[i])
-            cur_map.data[i] = 100;
-        else if (pos_fr[i] == pos_blocked[i]) {
-            // The position was as often blocked as free, use the seen to break the tie
-            // TODO: What to do here? Set to unknown so it gets visited again?
+        // Haven't seen this one occupied nor free
+        if(pos_seen[i] == 0) { 
             cur_map.data[i] = -1;
-        } else {
-            cur_map.data[i] = -1;
+            continue;
         }
+        // Check if we are certain enough that a position is blocked
+        if ((double)pos_blocked[i] / (double)pos_seen[i] >= .2)
+            cur_map.data[i] = 100;
+        else
+            cur_map.data[i] = 0;
     }
     ROS_INFO("Graph finished generateMap");
 }
@@ -140,6 +140,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
     double scan_angle, min_angle = scan.angle_min;
     int num_scans = scan.ranges.size();
     double pose_theta = tf::getYaw(pose.orientation);
+    ROS_INFO("Graph Generating local occ grid at x: %f, y: %f.", pose.position.x, pose.position.y);
     // Get the scan positions the bound the grid
     for (int i = 0; i < num_scans; i++)
     {
