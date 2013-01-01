@@ -38,23 +38,27 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
         node = &node_list[i];
-        if (xmax < (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution)
-            xmax = (node->robot_pose.position.x + (node->scan_grid.xmax)) * resolution;
+        float x = node->robot_pose.position.x, y = node->robot_pose.position.y;
+        if (xmax < (x + (node->scan_grid.xmax)) * resolution)
+            xmax = (x + (node->scan_grid.xmax)) * resolution;
 
-        if (xmin > (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution)
-            xmin = (node->robot_pose.position.x - (node->scan_grid.xmin)) * resolution;
+        if (xmin > (x - (node->scan_grid.xmin)) * resolution)
+            xmin = (x - (node->scan_grid.xmin)) * resolution;
 
-        if (ymax < (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution)
-            ymax = (node->robot_pose.position.y + (node->scan_grid.ymax)) * resolution;
+        if (ymax < (y + (node->scan_grid.ymax)) * resolution)
+            ymax = (y + (node->scan_grid.ymax)) * resolution;
 
-        if (ymin > (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution)
-            ymin = (node->robot_pose.position.y - (node->scan_grid.ymin)) * resolution;
+        if (ymin > (y - (node->scan_grid.ymin)) * resolution)
+            ymin = (y - (node->scan_grid.ymin)) * resolution;
     }
     ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
     // Map size
     double map_height = (ymax - ymin) / resolution;
     double map_width = (xmax - xmin) / resolution;
-    unsigned int map_size = (unsigned int)round(map_height * map_width);
+    // Increase the size of the map slightly so we don't run into any rounding errors
+    map_width++;
+    map_height++;
+    unsigned int map_size = (unsigned int) round(map_height * map_width);
     ROS_INFO("Graph map size: %d", map_size);
     //
     cur_map.header.frame_id = "/odom";
@@ -65,13 +69,12 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     //
     cur_map.data.resize(map_size);
     geometry_msgs::Pose origin;
-    origin.orientation.x=0;
-    origin.orientation.y=0;
-    origin.orientation.z=0;
-    origin.orientation.w=1;
-    origin.position.x=xmin;
-    origin.position.y=ymin;
-    origin.position.z=0;
+    origin.orientation.x = 0.;
+    origin.orientation.y = 0.;
+    origin.orientation.z = 0.;
+    origin.orientation.w = 1.;
+    origin.position.x = xmin;
+    origin.position.y = ymin;
     cur_map.info.origin = origin;
     // This vector counts how many times a map-position was seen in the graph
     // Later we use this to compute the certainty that a position is an obstacle
@@ -87,23 +90,23 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
         node = &node_list[i];
-        int node_x = round((node->robot_pose.position.x - xmin) / resolution) - node->scan_grid.xmin;
-        int node_y = round((node->robot_pose.position.y - ymin) / resolution) - node->scan_grid.ymin;
+        float x = node->robot_pose.position.x, y = node->robot_pose.position.y;
+        int node_x = round((x - xmin) / resolution) - node->scan_grid.xmin;
+        int node_y = round((y - ymin) / resolution) - node->scan_grid.ymin;
         // Go through the local map, and count the occupancies for the global map
         for (int j = 0; j < node->scan_grid.height; j++) {
             for (int k = 0; k < node->scan_grid.width; k++) {
                 // Index in the global map
-                int global_index = (node_y + j) * map_width + node_x + k;
+                int global_index = (map_width * (node_y + j) + k) + node_x;
                 pos_seen[global_index]++;
                 // The value of the local grid
-                int local_index = j * node->scan_grid.width + k;
+                int local_index = (j * node->scan_grid.width) + k;
                 int value = node->scan_grid.grid[local_index];
                 //
                 if (value == 100) // Position is blocked
                     pos_blocked[global_index]++;
                 if (value == 0) // Position is unoccupied
                     pos_fr[global_index]++;
-
             }
         }
     }
