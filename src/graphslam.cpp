@@ -111,11 +111,11 @@ void GraphSlam::drawPoses(){
 	}
 	pose_publish.publish(poses);
 	// Publish the edges between all poses
-	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
+	for(unsigned int i = 0; i < graph->edge_list.size() - 1; i++) {
 		geometry_msgs::Point start;
 		//
 		Pose * pose;
-		if(i > 0) { // First node has no child
+		if(i > 0) { // First node has no parent
 			pose = &graph->edge_list[i].parent->robot_pose;
 			start.x = pose->position.x;
 			start.y = pose->position.y;
