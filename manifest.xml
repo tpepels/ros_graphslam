@@ -1,20 +1,21 @@
 <package>
-  <description brief="graphslam">
+  <description brief="ros_slam_group5">
 
-     graphslam
+     ros_slam_group5
 
   </description>
-  <author>Tom Pepels</author>
+  <author>Cliff Laschet</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/graphslam</url>
+  <url>http://ros.org/wiki/ros_slam_group5</url>
+  <depend package="turtlebot_gazebo"/>
   <depend package="roscpp"/>
   <depend package="geometry_msgs"/>
   <depend package="sensor_msgs"/>
   <depend package="tf"/>
-  <depend package="turtlebot_node"/>
-  <depend package="visualization_msgs"/>
-  <depend package="nav_msgs"/>
+  <depend package="move_base_msgs" />
+  <depend package="actionlib" />
+
 </package>
 
 
