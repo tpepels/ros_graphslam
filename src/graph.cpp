@@ -12,9 +12,13 @@
 
 using namespace std;
 
+
 const int N_INF = -9999999;
 const int P_INF = 9999999;
 const double PI = 3.141592654;
+
+typedef BlockSolver< BlockSolverTraits<-1, -1> >  SlamBlockSolver;
+typedef LinearSolverCSparse<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
 
 Graph::Graph(double resolution, double range_threshold) {
     ROS_INFO("Graph entering constructor");
@@ -236,14 +240,14 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
 
 void Graph::solve(unsigned int iterations){
     //Setup solver
-    SparseOptimizer sparseOptimizer;
-    LinearSolverCSparse<SlamBlockSolver::PoseMatrixType>* linearSolver = new LinearSolverCSparse<SlamBlockSolver::PoseMatrixType>();
+    SparseOptimizer optimizer;
+    SlamLinearSolver* linearSolver = new SlamLinearSolver();
     linearSolver->setBlockOrdering(false);
-    BlockSolver<BlockSolverTraits<-1, -1> > * blockSolver = new BlockSolver<BlockSolverTraits<-1, -1> >(&sparseOptimizer, linearSolver);
-    sparseOptimizer.setSolver(blockSolver);
+    SlamBlockSolver* solver = new SlamBlockSolver(&optimizer, linearSolver);
+    optimizer.setSolver(solver);
 
     //Convert pose nodes to g2o node structure and add in the graph.
-    for(unsigned int i = 0; i < node_list.size(); i ++) {
+    for(unsigned int i = 0; i < node_list.size(); i ++){
         Node* curNode = &node_list[i];
         //Convert the node.
         Pose robot_pose = curNode->robot_pose;
