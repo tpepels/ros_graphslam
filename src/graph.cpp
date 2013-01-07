@@ -283,12 +283,11 @@ void Graph::solve(unsigned int iterations){
         g2o::SE2 difference = converted_parent_pose.inverse() * converted_child_pose;
         //Actually make the edge for the optimizer.
         g2o::EdgeSE2* graph_edge = new g2o::EdgeSE2;
-        graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent);
-        graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child);
+        graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent->id);
+        graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child->id);
         //TODO: Set information of edge
-        graph_edge->setMeasurement(0);
-        graph_edge->setInverseMeasurement(0);
-        graph_edge->setInformation(0);
+        // graph_edge->setMeasurement(edge->mean);        
+        // graph_edge->setInformation(edge->covariance);
         //Add edge to optimizer
         sparseOptimizer.addEdge(graph_edge);
     }
@@ -299,7 +298,7 @@ void Graph::solve(unsigned int iterations){
 
     //Convert the solved poses back
     for(unsigned int i = 0; i < node_list.size(); i++){
-        Pose* currentPose = &node_list[i]->robot_pose;
+        Pose* currentPose = &node_list[i].robot_pose;
         g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(i))->estimate();
         currentPose->position.x = optimized_pose[0];
         currentPose->position.y = optimized_pose[1];
