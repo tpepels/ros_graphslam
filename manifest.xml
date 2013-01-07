@@ -15,7 +15,11 @@
   <depend package="tf"/>
   <depend package="move_base_msgs" />
   <depend package="actionlib" />
+  <rosdep name="suitesparse"/>
   <rosdep name="libg2o"/>
+  <export>
+    <cpp cflags="-I${prefix}/include/ -I/usr/include/suitesparse" lflags="-L${prefix}/lib/ -lcsparse -Wl,-rpath,${prefix}/lib/" />
+  </export>
 </package>
 
 

@@ -17,8 +17,8 @@ const int N_INF = -9999999;
 const int P_INF = 9999999;
 const double PI = 3.141592654;
 
-typedef BlockSolver< BlockSolverTraits<-1, -1> >  SlamBlockSolver;
-typedef LinearSolverCSparse<SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
+typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
+typedef g2o::LinearSolverCSparse< SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
 
 Graph::Graph(double resolution, double range_threshold) {
     ROS_INFO("Graph entering constructor");
