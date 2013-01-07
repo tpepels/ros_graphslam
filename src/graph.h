@@ -6,7 +6,6 @@
 
 using namespace std;
 using namespace geometry_msgs;
-using namespace g2o;
 
 struct ScanGrid {
 	// The size, based on the range of the laserscanner

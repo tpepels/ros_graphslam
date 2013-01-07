@@ -2,7 +2,7 @@
 //
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/block_solver.h"
-#include "g2o/solvers/slam2d_linear/solver_slam2d_linear.h"
+#include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/core/base_vertex.h"
 #include "g2o/core/base_binary_edge.h"
 //
@@ -240,11 +240,11 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
 
 void Graph::solve(unsigned int iterations){
     //Setup solver
-    SparseOptimizer optimizer;
+    g2o::SparseOptimizer sparseOptimizer;
     SlamLinearSolver* linearSolver = new SlamLinearSolver();
     linearSolver->setBlockOrdering(false);
-    SlamBlockSolver* solver = new SlamBlockSolver(&optimizer, linearSolver);
-    optimizer.setSolver(solver);
+    SlamBlockSolver* solver = new SlamBlockSolver(linearSolver);
+    sparseOptimizer.setSolver(solver);
 
     //Convert pose nodes to g2o node structure and add in the graph.
     for(unsigned int i = 0; i < node_list.size(); i ++){
@@ -270,16 +270,15 @@ void Graph::solve(unsigned int iterations){
         Pose parent_pose = edge->parent->robot_pose;
         Pose child_pose = edge->child->robot_pose;
         //Convert the child and parent poses to g2o poses.
-        SE2 converted_parent_pose, converted_child_pose;
         double pose_theta = tf::getYaw(parent_pose.orientation);
-        converted_parent_pose.set(parent_pose.x, parent_pose.y, pose_theta);
+        g2o::SE2 converted_parent_pose(parent_pose.position.x, parent_pose.position.y, pose_theta);
         //
         pose_theta = tf::getYaw(child_pose.orientation);
-        converted_child_pose.set(child_pose.x, child_pose.y, pose_theta);
+        g2o::SE2 converted_child_pose(child_pose.position.x, child_pose.position.y, pose_theta);
         //
-        SE2 difference = converted_parent_pose.inverse() * converted_child_pose;
+        g2o::SE2 difference = converted_parent_pose.inverse() * converted_child_pose;
         //Actually make the edge for the optimizer.
-        EdgeSE2* graph_edge = new EdgeSE2;
+        g2o::EdgeSE2* graph_edge = new g2o::EdgeSE2;
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child);
         //TODO: Set information of edge
@@ -297,9 +296,9 @@ void Graph::solve(unsigned int iterations){
     //Convert the solved poses back
     for(unsigned int i = 0; i < node_list.size(); i++){
         Pose* currentPose = &node_list[i]->robot_pose;
-        SE2 optimized_pose = ((VertexSE2*) optimizer.vertex(i))->estimate();
-        currentPose->x = optimized_pose[0];
-        currentPose->y = optimized_pose[1];
-        currentPose->theta = optimized_pose[2];
+        g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(i))->estimate();
+        currentPose->position.x = optimized_pose[0];
+        currentPose->position.y = optimized_pose[1];
+        currentPose->orientation = tf::createQuaternionMsgFromYaw(optimized_pose[2]);
     }
 };
