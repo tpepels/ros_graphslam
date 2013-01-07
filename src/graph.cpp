@@ -286,5 +286,16 @@ void solve(unsigned int iterations){
         sparseOptimizer.addEdge(graph_edge);
     }
 
-    
+    //Optimize!
+    sparseOptimizer.initializeOptimization();
+    sparseOptimizer.optimize(iterations);
+
+    //Convert the solved poses back
+    for(unsigned int i = 0; i < node_list.size(); i++){
+        Pose currentPose = &node_list[i]->robot_pose;
+        SE2 optimized_pose = ((VertexSE2*) optimizer.vertex(i))->estimate();
+        currentPose.x = optimized_pose[0];
+        currentPose.y = optimized_pose[1];
+        currentPose.theta = optimized_pose[2];
+    }
 };
