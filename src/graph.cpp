@@ -1,4 +1,14 @@
 #include "graph.h"
+//
+#include "g2o/core/graph_optimizer_sparse.h"
+#include "g2o/core/block_solver.h"
+#include "g2o/solvers/csparse/linear_solver_csparse.h"
+#include "g2o/core/base_vertex.h"
+#include "g2o/core/base_binary_edge.h"
+//
+#include "se2.h";
+#include "vertex_se2.h";
+#include "edge_se2.h";
 
 using namespace std;
 
@@ -10,11 +20,13 @@ Graph::Graph(double resolution, double range_threshold) {
     ROS_INFO("Graph entering constructor");
 	this->resolution = resolution;
 	this->range_threshold = range_threshold;
+    this->idCounter = 1;
 };
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     ROS_INFO("Graph entering addNode");
 	Node n;
+    n.id = this->idCounter;
 	n.robot_pose = pose;
 	n.laser_scan = scan;
 	n.scan_grid = scanToOccGrid(scan, pose);
@@ -219,4 +231,8 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
     }
     ROS_INFO("Graph finished scanToOccGrid");
     return new_grid;
+};
+
+void solve(unsigned int iterations){
+    
 };
