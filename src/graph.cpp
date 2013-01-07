@@ -256,4 +256,35 @@ void solve(unsigned int iterations){
         //Add to the graph
         sparseOptimizer.addVertex(vertex);
     }
+
+    //Set one pose fixed, to reduce complexity. This pose wont be changed by the optimizer.
+    sparseOptimizer.vertex(0)->setFixed(true);
+
+    //Convert the edges to g2o edges and add them in the graph
+    for(unsigned int i = 0; i < edge_list.size(); i++){
+        Edge* edge = &edge_list[i];
+        Pose parent_pose = edge->parent->robot_pose;
+        Pose child_pose = edge->child->robot_pose;
+        //Convert the child and parent poses to g2o poses.
+        SE2 converted_parent_pose, converted_child_pose;
+        double pose_theta = tf::getYaw(parent_pose.orientation);
+        converted_parent_pose.set(parent_pose.x, parent_pose.y, pose_theta);
+        //
+        pose_theta = tf::getYaw(child_pose.orientation);
+        converted_child_pose.set(child_pose.x, child_pose.y, pose_theta);
+        //
+        SE2 difference = converted_parent_pose.inverse() * converted_child_pose;
+        //Actually make the edge for the optimizer.
+        EdgeSE2* graph_edge = new EdgeSE2;
+        graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent);
+        graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child);
+        //TODO: Set information of edge
+        graph_edge->setMeasurement(0);
+        graph_edge->setInverseMeasurement(0);
+        graph_edge->setInformation(0);
+        //Add edge to optimizer
+        sparseOptimizer.addEdge(graph_edge);
+    }
+
+    
 };
