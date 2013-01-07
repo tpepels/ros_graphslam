@@ -3,6 +3,7 @@
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/block_solver.h"
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
+#include "g2o/core/optimization_algorithm_gauss_newton.h"
 #include "g2o/core/base_vertex.h"
 #include "g2o/core/base_binary_edge.h"
 //
@@ -239,12 +240,15 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
 ;
 
 void Graph::solve(unsigned int iterations){
+
+
     //Setup solver
     g2o::SparseOptimizer sparseOptimizer;
     SlamLinearSolver* linearSolver = new SlamLinearSolver();
     linearSolver->setBlockOrdering(false);
-    SlamBlockSolver* solver = new SlamBlockSolver(linearSolver);
-    sparseOptimizer.setSolver(solver);
+    SlamBlockSolver* blockSolver = new SlamBlockSolver(linearSolver);
+    g2o::OptimizationAlgorithmGaussNewton* solverGauss = new g2o::OptimizationAlgorithmGaussNewton(blockSolver);
+    sparseOptimizer.setAlgorithm(solverGauss);
 
     //Convert pose nodes to g2o node structure and add in the graph.
     for(unsigned int i = 0; i < node_list.size(); i ++){
