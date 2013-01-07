@@ -1,14 +1,14 @@
 #include "graph.h"
 //
-#include "g2o/core/graph_optimizer_sparse.h"
+#include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/block_solver.h"
-#include "g2o/solvers/csparse/linear_solver_csparse.h"
+#include "g2o/solvers/slam2d_linear/solver_slam2d_linear.h"
 #include "g2o/core/base_vertex.h"
 #include "g2o/core/base_binary_edge.h"
 //
-#include "se2.h";
-#include "vertex_se2.h";
-#include "edge_se2.h";
+#include "g2o/types/slam2d/se2.h"
+#include "g2o/types/slam2d/edge_se2.h"
+#include "g2o/types/slam2d/vertex_se2.h"
 
 using namespace std;
 
@@ -261,7 +261,7 @@ void solve(unsigned int iterations){
     sparseOptimizer.vertex(0)->setFixed(true);
 
     //Convert the edges to g2o edges and add them in the graph
-    for(unsigned int i = 0; i < edge_list.size(); i++){
+    for(unsigned int i = 0; i < this->edge_list.size(); i++){
         Edge* edge = &edge_list[i];
         Pose parent_pose = edge->parent->robot_pose;
         Pose child_pose = edge->child->robot_pose;
@@ -292,10 +292,10 @@ void solve(unsigned int iterations){
 
     //Convert the solved poses back
     for(unsigned int i = 0; i < node_list.size(); i++){
-        Pose currentPose = &node_list[i]->robot_pose;
+        Pose* currentPose = &node_list[i]->robot_pose;
         SE2 optimized_pose = ((VertexSE2*) optimizer.vertex(i))->estimate();
-        currentPose.x = optimized_pose[0];
-        currentPose.y = optimized_pose[1];
-        currentPose.theta = optimized_pose[2];
+        currentPose->x = optimized_pose[0];
+        currentPose->y = optimized_pose[1];
+        currentPose->theta = optimized_pose[2];
     }
 };
