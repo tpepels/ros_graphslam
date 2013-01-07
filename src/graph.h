@@ -4,8 +4,9 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "tf/transform_listener.h"
 
-
 using namespace std;
+using namespace geometry_msgs;
+using namespace g2o;
 
 struct ScanGrid {
 	// The size, based on the range of the laserscanner
@@ -19,7 +20,7 @@ struct ScanGrid {
 // A node in the graph, contains its own little occupancygrid to later be combined with all nodes in the map
 struct Node {
 	unsigned int id;
-	geometry_msgs::Pose robot_pose;
+	Pose robot_pose;
 	sensor_msgs::LaserScan laser_scan;
 	// The occupancygrid for the scan at this position
 	ScanGrid scan_grid;
@@ -38,13 +39,13 @@ class Graph {
 		vector<Edge> edge_list;
 		//
 		Graph(double resolution, double range_threshold);
-		void addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan);
+		void addNode(Pose pose, sensor_msgs::LaserScan scan);
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);
 	private:
 		unsigned int idCounter;
 		Node * last_node;
 		double resolution, range_threshold;
-		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose& pose);
+		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
 
 };

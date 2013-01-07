@@ -231,26 +231,26 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
     }
     ROS_INFO("Graph finished scanToOccGrid");
     return new_grid;
-};
+}
+;
 
-void solve(unsigned int iterations){
+void Graph::solve(unsigned int iterations){
     //Setup solver
     SparseOptimizer sparseOptimizer;
     LinearSolverCSparse<SlamBlockSolver::PoseMatrixType>* linearSolver = new LinearSolverCSparse<SlamBlockSolver::PoseMatrixType>();
     linearSolver->setBlockOrdering(false);
-    BlockSolver< BlockSolverTraits<-1, -1> >*  blockSolver = new BlockSolver< BlockSolverTraits<-1, -1> >(&sparseOptimizer, linearSolver);
+    BlockSolver<BlockSolverTraits<-1, -1> > * blockSolver = new BlockSolver<BlockSolverTraits<-1, -1> >(&sparseOptimizer, linearSolver);
     sparseOptimizer.setSolver(blockSolver);
 
     //Convert pose nodes to g2o node structure and add in the graph.
-    for(unsigned interger i = 0; i < node_list.size(); i ++){
+    for(unsigned int i = 0; i < node_list.size(); i ++) {
         Node* curNode = &node_list[i];
-        SE2 converted_pose;
         //Convert the node.
         Pose robot_pose = curNode->robot_pose;
         double pose_theta = tf::getYaw(robot_pose.orientation);
-        converted_pose.set(robot_pose.x, robot_pose.y, pose_theta);
+        g2o::SE2 converted_pose(robot_pose.position.x, robot_pose.position.y, pose_theta);
         //Create the vertex to put in the graph.
-        VertexSE2* vertex = new VertexSE2;
+        g2o::VertexSE2* vertex = new g2o::VertexSE2;
         vertex->setId(i + 1);
         vertex->setEstimate(converted_pose);
         //Add to the graph
@@ -261,7 +261,7 @@ void solve(unsigned int iterations){
     sparseOptimizer.vertex(0)->setFixed(true);
 
     //Convert the edges to g2o edges and add them in the graph
-    for(unsigned int i = 0; i < this->edge_list.size(); i++){
+    for(unsigned int i = 0; i < edge_list.size(); i++){
         Edge* edge = &edge_list[i];
         Pose parent_pose = edge->parent->robot_pose;
         Pose child_pose = edge->child->robot_pose;
