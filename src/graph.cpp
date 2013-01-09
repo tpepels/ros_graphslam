@@ -31,7 +31,8 @@ Graph::Graph(double resolution, double range_threshold) {
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     ROS_INFO("Graph entering addNode");
 	Node n;
-    n.id = this->idCounter;
+    //n.id = this->idCounter;
+    //idCounter++;
 	n.robot_pose = pose;
 	n.laser_scan = scan;
 	n.scan_grid = scanToOccGrid(scan, pose);
