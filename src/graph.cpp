@@ -240,8 +240,6 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, geometry_msgs::Pose&
 ;
 
 void Graph::solve(unsigned int iterations){
-
-
     //Setup solver
     g2o::SparseOptimizer sparseOptimizer;
     SlamLinearSolver* linearSolver = new SlamLinearSolver();
