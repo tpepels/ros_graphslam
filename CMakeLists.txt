@@ -16,6 +16,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 include_directories(${PROJECT_SOURCE_DIR}/include)
+
 #uncomment if you have defined messages
 #rosbuild_genmsg()
 #uncomment if you have defined services
@@ -37,3 +38,4 @@ rosbuild_add_library(scanmatcher src/scanmatcher.cpp)
 rosbuild_add_executable(${PROJECT_NAME} src/graphslam.cpp)
 target_link_libraries(${PROJECT_NAME} graph)
 target_link_libraries(graph g2o_core g2o_stuff g2o_types_slam2d g2o_solver_cholmod g2o_solver_pcg g2o_solver_csparse cxsparse g2o_incremental g2o_csparse_extension)
+target_link_libraries(scanmatcher csm)
