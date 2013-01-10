@@ -116,7 +116,7 @@ bool newKF(const tf::Transform& transform){
   return false;
 };
 
-bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, Pose& meanPose, gsl_matrix& covariance){
+bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[3][3]){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -163,11 +163,15 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
     //Update pose in fixed frame
     fixed_to_base = fixed_to_base_keyframe * correct_change;
     //Set mean pose
-    meanPose.position.x = fixed_to_base.getOrigin().getX();
-    meanPose.position.y = fixed_to_base.getOrigin().getY();
-    meanPose.orientation = tf::createQuaternionMsgFromYaw(tf::getYaw(fixed_to_base.getRotation()));
+    mean[0] = fixed_to_base.getOrigin().getX();
+    mean[1] = fixed_to_base.getOrigin().getY();
+    mean[2] tf::createQuaternionMsgFromYaw(tf::getYaw(fixed_to_base.getRotation()));
     //Set covariance
-    covariance = output.cov_x_m;
+    for(unsigned int i = 0; i < output.cov_x_m.size1; i++){
+      for(unsigned int j = 0; j < output.cov_x_m.size2; j++){
+        covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
+      }
+    }
   }else{
     correct_change.setIdentity();
     ROS_WARN("Solution was not found.");
@@ -189,7 +193,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, Pose& meanPose, gsl_matrix& covariance){
+bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, double mean[3], double covariance[3][3]){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {
@@ -202,5 +206,5 @@ bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::T
   }
   LDP current_ldp;
   convertScantoDLP(scan, current_ldp);
-  return processScan(current_ldp, scan->header.stamp, meanPose, covariance);
+  return processScan(current_ldp, scan->header.stamp, mean, covariance);
 };

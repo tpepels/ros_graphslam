@@ -42,6 +42,6 @@ class ScanMatcher {
   bool setBasetoLaserTransform(const std::string& frame_id);
   void convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp);
   bool newKF(const tf::Transform& d);
-  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, Pose& meanPose, gsl_matrix& covariance);
-  bool scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, Pose& meanPose, gsl_matrix& covariance);
+  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[3][3]);
+  bool scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, double mean[3], double covariance[3][3]);
 };
