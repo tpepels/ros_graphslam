@@ -1,0 +1,2 @@
+/usr/bin/ar cr libgpc.a  CMakeFiles/gpc.dir/gpc.o CMakeFiles/gpc.dir/gpc_utils.o
+/usr/bin/ranlib libgpc.a

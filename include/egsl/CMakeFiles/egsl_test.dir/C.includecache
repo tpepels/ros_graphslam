@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/tom/csm-git/sm/lib/egsl/egsl.h
+gsl/gsl_vector.h
+-
+gsl/gsl_matrix.h
+-
+
+/home/tom/csm-git/sm/lib/egsl/egsl_macros.h
+egsl.h
+/home/tom/csm-git/sm/lib/egsl/egsl.h
+
+/home/tom/csm-git/sm/lib/egsl/egsl_test.c
+math.h
+-
+gsl/gsl_math.h
+-
+egsl_macros.h
+/home/tom/csm-git/sm/lib/egsl/egsl_macros.h
+
