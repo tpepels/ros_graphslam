@@ -29,7 +29,7 @@ class ScanMatcher {
   //Pose of the last keyframe scan in fixed frame
   tf::Transform fixed_to_base_keyframe;
   //Used to convert poses between base of the robot and the laser scanner.
-  tf:Transform laser_to_base;
+  tf::Transform laser_to_base;
   tf::Transform base_to_laser;
   //
   ros::Time last_time;
