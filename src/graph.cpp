@@ -76,8 +76,8 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     double map_width = (xmax - xmin) / resolution;
     // Increase the size of the map slightly so we don't run into any rounding errors
     // Why 2? Because 1 and 0 didn't work :)
-    map_width += 2;
-    map_height += 2;
+    // map_width += 2;
+    // map_height += 2;
     unsigned int map_size = (unsigned int) round(map_height * map_width);
     ROS_INFO("Graph map size: %d", map_size);
     //
@@ -139,7 +139,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
             continue;
         }
         // Check if we are certain enough that a position is blocked
-        if ((double)pos_blocked[i] / (double)pos_seen[i] >= .2)
+        if ((double)pos_blocked[i] / (double)pos_seen[i] >= .4)
             cur_map.data[i] = 100;
         else
             cur_map.data[i] = 0;

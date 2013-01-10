@@ -38,19 +38,20 @@ ScanMatcher::ScanMatcher() {
   input.debug_verify_tricks = 0;
   input.use_ml_weights = 0;
   input.use_sigma_weights = 0;
-};
+}
+;
 
-void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp){
+void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp) {
   unsigned int numberOfScans = scan->ranges.size();
   ldp = ld_alloc_new(numberOfScans);
   //
-  for(unsigned int i = 0; i < numberOfScans; i++){
+  for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
     double range = scan->ranges[i];
-    if(range > scan->range_min && range < scan->range_max){
+    if(range > scan->range_min && range < scan->range_max) {
       ldp->valid[i] = 1;
       ldp->readings[i] = range;
-    }else{
+    } else {
       ldp->valid[i] = 0;
       ldp->readings[i] = -1;
     }
@@ -69,9 +70,10 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   ldp->true_pose[0] = 0.0;
   ldp->true_pose[1] = 0.0;
   ldp->true_pose[2] = 0.0;
-};
+}
+;
 
-void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
+void ScanMatcher::processScan(LDP& ldp, ros::Time time) {
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -88,11 +90,11 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   input.laser_ref = previous_ldp;
   input.laser_sens = ldp;
   //Estimate the change in pose since the last scan.
-  double deltaT = (time - last_time).toSec();
+  //double deltaT = (time - last_time).toSec();
   double change_x, change_y, change_theta;
-  estimatePoseChange(change_x, change_y, change_theta);
+  //estimatePoseChange(change_x, change_y, change_theta);
   //Create TF from this estimate
-  tf::Transform& change;
+  tf::Transform change;
   change.setOrigin(tf::Vector3(change_x, change_y, 0.0));
   tf::Quaternion quaternion;
   quaternion.setRPY(0.0, 0.0, change_theta);
@@ -100,11 +102,12 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   //Change since the last keyframe, in the fixed frame.
   change = change * (fixed_to_base * fixed_to_base_keyframe.inverse());
   //
-  
-};
+}
+;
 
-void ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time& time){
+void ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time) {
   last_time = scan->header.stamp;
   convertScantoDLP(scan, previous_ldp);
   processScan(previous_ldp, scan->header.stamp);
-};
+}
+;
