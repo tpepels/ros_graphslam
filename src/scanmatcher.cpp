@@ -4,9 +4,9 @@
 #include <cmath>
 #include <math.h>
 
-ScanMatcher::ScanMatcher(){
+ScanMatcher::ScanMatcher() {
   fixed_to_base.setIdentity();
-  fixed_to_base_keyframe.setIdentity;
+  fixed_to_base_keyframe.setIdentity();
   //
   input.laser[0] = 0.0;
   input.laser[1] = 0.0;
@@ -21,14 +21,14 @@ ScanMatcher::ScanMatcher(){
   input.sigma = 0.010;
   input.use_corr_tricks = 1;
   input.restart = 0;
-  input.restart_treshold_mean_error = 0.01;
+  input.restart_threshold_mean_error = 0.01;
   input.restart_dt = 1.0;
-  input.resstart_dtheta = 0.1;
-  input.clustering_treshold = 0.25;
+  input.restart_dtheta = 0.1;
+  input.clustering_threshold = 0.25;
   input.orientation_neighbourhood = 20;
   input.use_point_to_line_distance = 1;
   input.do_alpha_test = 0;
-  input.do_alpah_test_thresholdDeg = 20.0;
+  input.do_alpha_test_thresholdDeg = 20.0;
   input.outliers_maxPerc = 0.90;
   input.outliers_adaptive_order = 0.7;
   input.outliers_adaptive_mult = 2.0;
@@ -36,7 +36,7 @@ ScanMatcher::ScanMatcher(){
   input.outliers_remove_doubles = 1;
   input.do_compute_covariance = 1;
   input.debug_verify_tricks = 0;
-  input..use_ml_weights = 0;
+  input.use_ml_weights = 0;
   input.use_sigma_weights = 0;
 };
 
@@ -47,9 +47,9 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   for(unsigned int i = 0; i < numberOfScans; i++){
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
     double range = scan->ranges[i];
-    if(r > scan->range_min && r < scan->range_max){
+    if(range > scan->range_min && range < scan->range_max){
       ldp->valid[i] = 1;
-      ldp->readings[i] = r;
+      ldp->readings[i] = range;
     }else{
       ldp->valid[i] = 0;
       ldp->readings[i] = -1;
@@ -60,7 +60,7 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   }
   //
   ldp->min_theta = ldp->theta[0];
-  ldp->max_theta = ldp->theta[n-1];
+  ldp->max_theta = ldp->theta[numberOfScans-1];
   //
   ldp->odometry[0] = 0.0;
   ldp->odometry[1] = 0.0;
@@ -71,6 +71,7 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   ldp->true_pose[2] = 0.0;
 };
 
+<<<<<<< HEAD
 void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
