@@ -5,6 +5,13 @@
 #include <math.h>
 
 ScanMatcher::ScanMatcher() {
+  initialized = false;
+  //
+  base_frame = "base_link";
+  fixed_frame = "world";
+  keyframe_distance_linear = 0.10;
+  keyframe_distance_angular = 10.0 * (PI / 180.0);
+  //
   fixed_to_base.setIdentity();
   fixed_to_base_keyframe.setIdentity();
   //
@@ -40,6 +47,28 @@ ScanMatcher::ScanMatcher() {
   input.use_sigma_weights = 0;
 };
 
+bool ScanMatcher::setBasetoLaserTransform(const std::string& frame_id){
+  ros::Time t = ros::Time::now();
+
+  tf::StampedTransform base_to_laser_tf;
+  try
+  {
+    tf_listener.waitForTransform(
+      base_frame, frame_id, t, ros::Duration(1.0));
+    tf_listener.lookupTransform (
+      base_frame, frame_id, t, base_to_laser_tf);
+  }
+  catch (tf::TransformException ex)
+  {
+    ROS_WARN("Could not get initial transform, %s", ex.what());
+    return false;
+  }
+  base_to_laser = base_to_laser_tf;
+  laser_to_base = base_to_laser.inverse();
+
+  return true;
+};
+
 void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp){
   unsigned int numberOfScans = scan->ranges.size();
   ldp = ld_alloc_new(numberOfScans);
@@ -71,6 +100,24 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   ldp->true_pose[2] = 0.0;
 };
 
+void ScanMatcher::estimatePoseChange(double& change_x, double& change_y, double& change_theta, double deltaT){
+  
+};
+
+bool newKF(const tf::Transform& transform){
+  if (tf::getYaw(transform.getRotation()) > keyframe_distance_angular){
+    return true;
+  }
+  //
+  double x = transform.getOrigin().getX();
+  double y = transform.getOrigin().getY();
+  //
+  if (x*x + y*y > (keyframe_distance_linear * keyframe_distance_linear)){
+    return true;
+  }
+  return false;
+};
+
 void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
@@ -90,7 +137,7 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   //Estimate the change in pose since the last scan.
   double deltaT = (time - last_time).toSec();
   double change_x, change_y, change_theta;
-  estimatePoseChange(change_x, change_y, change_theta);
+  estimatePoseChange(change_x, change_y, change_theta, deltaT);
   //Create TF from this estimate
   tf::Transform& change;
   change.setOrigin(tf::Vector3(change_x, change_y, 0.0));
@@ -99,12 +146,56 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   change.setRotation(quaternion);
   //Change since the last keyframe, in the fixed frame.
   change = change * (fixed_to_base * fixed_to_base_keyframe.inverse());
+  //Change of the laser's position in the fixed frame
+  Tf::change_laser;
+  change_laser = laser_to_base * fixed_to_base.inverse() * change * fixed_to_base * base_to_laser;
+  //Almost done, set initial estimate of input
+  input.first_guess[0] = change_laser.getOrigin().getX();
+  input.first_guess[1] = change_laser.getOrigin().getY();
+  input.first_guess[2] = tf::getYaw(change_laser.getOrigin().getRotation());
+  //Finally, perform scan matching.
+  sm_icp(&input, &output);
   //
-  
+  tf::Transform correct_change;
+  if(output.valid){
+    //Get the result in a transform.
+    tf::Transform correct_change_laser;
+    correct_change_laser.setOrigin(tf::Vector3(change_x, change_y, 0.0));
+    tf::Quaternion quaternion;
+    correct_change_laser.setRPY(0.0, 0.0, change_theta);
+    correct_change_laser.setRotation(quaternion);
+    //Calculate change from this transform
+    correct_change = base_to_laser * correct_change_laser * laser_to_base;
+    //Update pose in fixed frame
+    fixed_to_base = fixed_to_base_keyframe * correct_change;
+    //TODO PUBLISH SHIT
+  }else{
+    correct_change.setIdentity();
+    ROS_WARN("Solution was not found.");
+  }
+  //Update variables
+  if(newKF(correct_change)){
+    ld_free(previous_ldp);
+    previous_ldp = current_ldp;
+    fixed_to_base_keyframe = fixed_to_base;
+  }else{
+    ld_free(current_ldp);
+  }
+  last_time = time;
 };
 
 void ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time& time){
-  last_time = scan->header.stamp;
-  convertScantoDLP(scan, previous_ldp);
-  processScan(previous_ldp, scan->header.stamp);
+  if(!initialized){
+    while(!getBaseToLaserTf(scan_msg->header.frame_id))
+    {
+      ROS_WARN("Error while waiting for transform.");
+      return;
+    }
+    convertScantoDLP(scan, previous_ldp);
+    last_time = scan->header.stamp;
+    initialized = true;
+  }
+  LDP current_ldp;
+  convertScantoDLP(scan, current_ldp);
+  processScan(current_ldp, scan->header.stamp);
 };

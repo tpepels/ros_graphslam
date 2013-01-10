@@ -19,6 +19,7 @@ class ScanMatcher {
  public:
   ScanMatcher();
  private:
+  const double PI = 3.14159265359;
   sm_params input;
   sm_result output;
   //
@@ -32,9 +33,15 @@ class ScanMatcher {
   tf::Transform base_to_laser;
   //
   ros::Time last_time;
+  bool initialized;
+  tf::TransformListener tf_listener;
+  td::string base_frame, fixed_frame;
+  double keyframe_distance_linear, keyframe_distance_angular;
 
   bool setBasetoLaserTransform(const std::string& frame_id);
   void convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp);
+  void estimatePoseChange(double& change_x, double& change_y, double& change_theta, double deltaT);
+  bool newKF(const tf::Transform& d);
   void processScan(LDP& ldp, ros::Time time);
   void scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time);
 };
