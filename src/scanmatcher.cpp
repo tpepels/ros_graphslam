@@ -102,10 +102,6 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
 }
 ;
 
-void ScanMatcher::estimatePoseChange(double& change_x, double& change_y, double& change_theta, double deltaT){
-  
-};
-
 bool newKF(const tf::Transform& transform){
   if (tf::getYaw(transform.getRotation()) > keyframe_distance_angular){
     return true;
@@ -120,7 +116,7 @@ bool newKF(const tf::Transform& transform){
   return false;
 };
 
-void ScanMatcher::processScan(LDP& ldp, ros::Time time){
+bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, Pose& meanPose, gsl_matrix& covariance){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -136,11 +132,7 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time time){
   //
   input.laser_ref = previous_ldp;
   input.laser_sens = ldp;
-  //Estimate the change in pose since the last scan.
-  //double deltaT = (time - last_time).toSec();
-  double change_x, change_y, change_theta;
-  estimatePoseChange(change_x, change_y, change_theta, deltaT);
-  //Create TF from this estimate
+  //Create TF from the odometry pose estimate
   tf::Transform change;
   change.setOrigin(tf::Vector3(change_x, change_y, 0.0));
   tf::Quaternion quaternion;
@@ -170,7 +162,12 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time time){
     correct_change = base_to_laser * correct_change_laser * laser_to_base;
     //Update pose in fixed frame
     fixed_to_base = fixed_to_base_keyframe * correct_change;
-    //TODO PUBLISH SHIT
+    //Set mean pose
+    meanPose.position.x = fixed_to_base.getOrigin().getX();
+    meanPose.position.y = fixed_to_base.getOrigin().getY();
+    meanPose.orientation = tf::createQuaternionMsgFromYaw(tf::getYaw(fixed_to_base.getRotation()));
+    //Set covariance
+    covariance = output.cov_x_m;
   }else{
     correct_change.setIdentity();
     ROS_WARN("Solution was not found.");
@@ -184,9 +181,15 @@ void ScanMatcher::processScan(LDP& ldp, ros::Time time){
     ld_free(current_ldp);
   }
   last_time = time;
+  //Return
+  if(output.valid){
+    return true;
+  }else{
+    return false;
+  }
 };
 
-void ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time){
+bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, Pose& meanPose, gsl_matrix& covariance){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {
@@ -199,5 +202,5 @@ void ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::T
   }
   LDP current_ldp;
   convertScantoDLP(scan, current_ldp);
-  processScan(current_ldp, scan->header.stamp);
+  return processScan(current_ldp, scan->header.stamp, meanPose, covariance);
 };
