@@ -71,7 +71,6 @@ void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan,
   ldp->true_pose[2] = 0.0;
 };
 
-<<<<<<< HEAD
 void ScanMatcher::processScan(LDP& ldp, ros::Time& time){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
