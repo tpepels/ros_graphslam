@@ -289,7 +289,7 @@ void Graph::solve(unsigned int iterations){
         g2o::SE2 converted_pose(graph_pose.x, graph_pose.y, graph_pose.theta);
         //Create the vertex to put in the graph.
         g2o::VertexSE2* vertex = new g2o::VertexSE2;
-        vertex->setId(node->id);
+        vertex->setId(curNode->id);
         vertex->setEstimate(converted_pose);
         //Add to the graph
         sparseOptimizer.addVertex(vertex);
