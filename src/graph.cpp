@@ -1,16 +1,4 @@
 #include "graph.h"
-//
-#include "g2o/core/sparse_optimizer.h"
-#include "g2o/core/block_solver.h"
-#include "g2o/solvers/csparse/linear_solver_csparse.h"
-#include "g2o/core/optimization_algorithm_gauss_newton.h"
-#include "g2o/core/base_vertex.h"
-#include "g2o/core/base_binary_edge.h"
-//
-#include "g2o/types/slam2d/se2.h"
-#include "g2o/types/slam2d/edge_se2.h"
-#include "g2o/types/slam2d/vertex_se2.h"
-//
 #include "scanmatcher.h"
 
 using namespace std;
@@ -40,27 +28,28 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     n.graph_pose.theta = tf::getYaw(pose.orientation);
     // Store the scans
 	n.laser_scan = scan;
-	n.scan_grid = scanToOccGrid(scan, pose);
+	n.scan_grid = scanToOccGrid(scan, n.graph_pose);
 	node_list.push_back(n);
     ROS_INFO("Graph Added node with odometry x: %f, y: %f.", pose.position.x, pose.position.y);
     double mean[3];
-    Matrix3d covariance[3][3];
+    Matrix3d covariance;
     //
     if(node_list.size() > 1){
         Edge e;
         e.parent = &node_list[node_list.size() - 2];
         e.child = &node_list[node_list.size() - 1];
         //Calculate change in position
-        double change_x = e.child->robot_pose.x - e.parent->robot_pose.x;
-        double change_y = e.child->robot_pose.y - e.parent->robot_pose.y;
-        double change_theta = abs(tf::getYaw(e.child->robot_pose.orientation) - tf::getYaw(e.parent->robot_pose.orientation));
+        double change_x = e.child->odom_pose.position.x - e.parent->odom_pose.position.x;
+        double change_y = e.child->odom_pose.position.y - e.parent->odom_pose.position.y;
+        double change_theta = abs(tf::getYaw(e.child->odom_pose.orientation) - tf::getYaw(e.parent->odom_pose.orientation));
         if (change_theta > PI) {
             change_theta = 2 * PI - change_theta;
         }
 	    // Match the new node's scans to previous scans and add edges accordingly
         ScanMatcher matcher;
-        if(matcher.scanMatch(scan, e.parent.laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
-            e.mean.set(mean[0], mean[1], mean[2]);
+        if(matcher.scanMatch(scan, e.parent->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
+            g2o::SE2 se_mean(mean[0], mean[1], mean[2]);
+            e.mean = se_mean;
             e.covariance = covariance;
             // Update the node's position according to the result from the scan-match
             n.graph_pose.x = mean[0];
@@ -178,7 +167,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
 ;
 
 // Take a scan as input, generate a small, local occupancy grid
-ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose){
+ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose) {
     ROS_INFO("Graph entering scanToOccGrid");
 	ScanGrid new_grid;
 	double angle_incr = scan.angle_increment;
@@ -190,7 +179,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose){
     // Get the scan positions the bound the grid
     for (int i = 0; i < num_scans; i++)
     {
-        scan_angle = pose_theta + min_angle + i * angle_incr;
+        scan_angle = pose.theta + min_angle + i * angle_incr;
         if (ymax < pose.y + scan.ranges[i] * sin(scan_angle))
             ymax = pose.y + scan.ranges[i] * sin(scan_angle);
         if (xmax < pose.x + scan.ranges[i] * cos(scan_angle))

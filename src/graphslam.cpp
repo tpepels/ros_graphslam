@@ -102,8 +102,8 @@ void GraphSlam::spin() {
 			geometry_msgs::PoseStamped p;
 			p.header.stamp = ros::Time().now();
   			p.header.frame_id = "/odom";
-  			p.pose.x = graph->last_node->graph_pose.x;
-  			p.pose.y = graph->last_node->graph_pose.y;
+  			p.pose.position.x = graph->last_node->graph_pose.x;
+  			p.pose.position.y = graph->last_node->graph_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(graph->last_node->graph_pose.theta);
   			pose_publisher.publish(p);
 			//
@@ -143,9 +143,9 @@ void GraphSlam::drawPoses(){
 	// Publish all poses in the graph!
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
 		geometry_msgs::Pose new_pose;
-		new_pose.x = graph->node_list[i].graph_pose.x;
-		new_pose.y = graph->node_list[i].graph_pose.y;
-		new_pose.theta = tf::createQuaternionMsgFromYaw(graph->node_list[i].graph_pose.theta);
+		new_pose.position.x = graph->node_list[i].graph_pose.x;
+		new_pose.position.y = graph->node_list[i].graph_pose.y;
+		new_pose.orientation = tf::createQuaternionMsgFromYaw(graph->node_list[i].graph_pose.theta);
         poses.poses.push_back(new_pose);
 	}
 	pose_publish.publish(poses);

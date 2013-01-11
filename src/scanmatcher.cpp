@@ -71,13 +71,13 @@ bool ScanMatcher::setBasetoLaserTransform(const std::string& frame_id){
 };
 
 void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
-  unsigned int numberOfScans = scan->ranges.size();
+  unsigned int numberOfScans = scan.ranges.size();
   ldp = ld_alloc_new(numberOfScans);
   //
   for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
-    double range = scan->ranges[i];
-    if(range > scan->range_min && range < scan->range_max) {
+    double range = scan.ranges[i];
+    if(range > scan.range_min && range < scan.range_max) {
       ldp->valid[i] = 1;
       ldp->readings[i] = range;
     } else {
@@ -85,7 +85,7 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
       ldp->readings[i] = -1;
     }
     //Set angle
-    ldp->theta[i] = scan->angle_min + i * scan->angle_increment;
+    ldp->theta[i] = scan.angle_min + i * scan.angle_increment;
     ldp->cluster[i] = -1;
   }
   //
@@ -102,7 +102,7 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
 }
 ;
 
-bool newKF(const tf::Transform& transform){
+bool ScanMatcher::newKF(const tf::Transform& transform){
   if (tf::getYaw(transform.getRotation()) > keyframe_distance_angular){
     return true;
   }
@@ -110,7 +110,7 @@ bool newKF(const tf::Transform& transform){
   double x = transform.getOrigin().getX();
   double y = transform.getOrigin().getY();
   //
-  if (x*x + y*y > (keyframe_distance_linear * keyframe_distance_linear)){
+  if (pow(x, 2) + pow(y, 2) > pow(keyframe_distance_linear, 2)){
     return true;
   }
   return false;
@@ -141,12 +141,12 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   //Change since the last keyframe, in the fixed frame.
   change = change * (fixed_to_base * fixed_to_base_keyframe.inverse());
   //Change of the laser's position in the fixed frame
-  Tf::change_laser;
+  tf::Transform change_laser;
   change_laser = laser_to_base * fixed_to_base.inverse() * change * fixed_to_base * base_to_laser;
   //Almost done, set initial estimate of input
   input.first_guess[0] = change_laser.getOrigin().getX();
   input.first_guess[1] = change_laser.getOrigin().getY();
-  input.first_guess[2] = tf::getYaw(change_laser.getOrigin().getRotation());
+  input.first_guess[2] = tf::getYaw(change_laser.getRotation());
   //Finally, perform scan matching.
   sm_icp(&input, &output);
   //
@@ -156,7 +156,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
     tf::Transform correct_change_laser;
     correct_change_laser.setOrigin(tf::Vector3(change_x, change_y, 0.0));
     tf::Quaternion quaternion;
-    correct_change_laser.setRPY(0.0, 0.0, change_theta);
+    quaternion.setRPY(0.0, 0.0, change_theta);
     correct_change_laser.setRotation(quaternion);
     //Calculate change from this transform
     correct_change = base_to_laser * correct_change_laser * laser_to_base;
@@ -165,10 +165,11 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
     //Set mean pose
     mean[0] = fixed_to_base.getOrigin().getX();
     mean[1] = fixed_to_base.getOrigin().getY();
-    mean[2] tf::createQuaternionMsgFromYaw(tf::getYaw(fixed_to_base.getRotation()));
+    mean[2] = tf::getYaw(fixed_to_base.getRotation());
     //Set covariance
-    for(unsigned int i = 0; i < output.cov_x_m.size1; i++){
-      for(unsigned int j = 0; j < output.cov_x_m.size2; j++){
+    unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
+    for(unsigned int i = 0; i < rows; i++){
+      for(unsigned int j = 0; j < cols; j++){
         covariance(i, j) = gsl_matrix_get(output.cov_x_m, i, j);
       }
     }
@@ -195,16 +196,17 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
 
 bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d covariance){
   if(!initialized){
-    while(!getBaseToLaserTf(scan_msg->header.frame_id))
+    while(!setBasetoLaserTransform(scan_to_match.header.frame_id))
     {
       ROS_WARN("Error while waiting for transform.");
-      return;
+      return false;
     }  
     initialized = true;
   }
   convertScantoDLP(reference_scan, previous_ldp);
-  last_time = scan->header.stamp;
+  last_time = scan_to_match.header.stamp;
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
-  return processScan(current_ldp, scan->header.stamp, change_x, change_y, change_theta, mean, covariance);
+  bool result = processScan(current_ldp, scan_to_match.header.stamp, change_x, change_y, change_theta, mean, covariance);
+  return result;
 };

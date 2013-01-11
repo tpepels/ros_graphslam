@@ -6,9 +6,21 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "tf/transform_listener.h"
 #include <Eigen/Core>
+//
+#include "g2o/core/sparse_optimizer.h"
+#include "g2o/core/block_solver.h"
+#include "g2o/solvers/csparse/linear_solver_csparse.h"
+#include "g2o/core/optimization_algorithm_gauss_newton.h"
+#include "g2o/core/base_vertex.h"
+#include "g2o/core/base_binary_edge.h"
+//
+#include "g2o/types/slam2d/se2.h"
+#include "g2o/types/slam2d/edge_se2.h"
+#include "g2o/types/slam2d/vertex_se2.h"
 
 using namespace std;
 using namespace geometry_msgs;
+using namespace Eigen;
 
 struct GraphPose {
 	double x, y, theta;
@@ -40,7 +52,7 @@ struct Edge {
 	Node * parent;
 	Node * child;
 	//
-	SE2 mean;
+	g2o::SE2 mean;
 	Matrix3d covariance;
 };
 
@@ -58,6 +70,6 @@ class Graph {
 	private:
 		unsigned int idCounter;
 		double resolution, range_threshold;
-		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
+		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose);
 };
 #endif
