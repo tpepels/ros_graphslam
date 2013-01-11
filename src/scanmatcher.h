@@ -1,4 +1,5 @@
-//
+#ifndef SCANMATCHER_H
+#define SCANMATCHER_H
 #include "graph.h"
 #include "ros/ros.h"
 //
@@ -11,13 +12,19 @@
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/PoseStamped.h"
 //
+#include <Eigen/Core>
+//
 #include <csm/csm_all.h>
+#include <gsl/gsl_matrix.h> //Hier zit covariance in
+
+#define PI 3.14159265359
 
 using namespace std;
 
 class ScanMatcher {
  public:
   ScanMatcher();
+  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d& covariance);
  private:
   sm_params input;
   sm_result output;
@@ -32,9 +39,14 @@ class ScanMatcher {
   tf::Transform base_to_laser;
   //
   ros::Time last_time;
+  bool initialized;
+  tf::TransformListener tf_listener;
+  string base_frame, fixed_frame;
+  double keyframe_distance_linear, keyframe_distance_angular;
 
   bool setBasetoLaserTransform(const std::string& frame_id);
-  void convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp);
-  void processScan(LDP& ldp, ros::Time time);
-  void scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time);
+  void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
+  bool newKF(const tf::Transform& d);
+  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d& covariance);
 };
+#endif
