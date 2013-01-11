@@ -132,7 +132,10 @@ void GraphSlam::drawPoses(){
 	edges_message.ns = "edges";
 	// Publish all poses in the graph!
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
-		geometry_msgs::Pose new_pose (graph->node_list[i].robot_pose);
+		geometry_msgs::Pose new_pose;
+		new_pose.x = graph->node_list[i].graph_pose.x;
+		new_pose.y = graph->node_list[i].graph_pose.y;
+		new_pose.theta = tf::createQuaternionMsgFromYaw(graph->node_list[i].graph_pose.theta);
         poses.poses.push_back(new_pose);
 	}
 	pose_publish.publish(poses);
@@ -140,20 +143,20 @@ void GraphSlam::drawPoses(){
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		geometry_msgs::Point start;
 		//
-		Pose * pose;
+		GraphPose * pose;
 		if(i > 0) { // First node has no parent
-			pose = &graph->edge_list[i].parent->robot_pose;
-			start.x = pose->position.x;
-			start.y = pose->position.y;
+			pose = &graph->edge_list[i].parent->graph_pose;
+			start.x = pose->x;
+			start.y = pose->y;
 		} else {
 			start.x = 0;
 			start.y = 0;
 		}
 		//
 		geometry_msgs::Point end;
-		pose = &graph->edge_list[i].child->robot_pose;
-		end.x = pose->position.x;
-		end.y = pose->position.y;
+		pose = &graph->edge_list[i].child->graph_pose;
+		end.x = pose->x;
+		end.y = pose->y;
 		//
 		edges_message.points.push_back(start);
 		edges_message.points.push_back(end);
@@ -177,7 +180,7 @@ void GraphSlam::drawScans(){
 	//
 	
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
-		float theta = tf::getYaw(graph->node_list[i].robot_pose.orientation);
+		float theta = graph->node_list[i].graph_pose.theta;
 		//
 		float minimal_angle = theta + graph->node_list[i].laser_scan.angle_min;
 		float current_angle = minimal_angle;
@@ -192,8 +195,8 @@ void GraphSlam::drawScans(){
 				continue;
 			}
 			//
-			float x = graph->node_list[i].robot_pose.position.x + cos(current_angle) * range;
-			float y = graph->node_list[i].robot_pose.position.y + sin(current_angle) * range;
+			float x = graph->node_list[i].graph_pose.x + cos(current_angle) * range;
+			float y = graph->node_list[i].graph_pose.y + sin(current_angle) * range;
 			//
 			geometry_msgs::Point point;
 			point.x = x;

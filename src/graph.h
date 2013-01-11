@@ -9,6 +9,10 @@
 using namespace std;
 using namespace geometry_msgs;
 
+struct GraphPose {
+	double x, y, theta;
+};
+
 struct ScanGrid {
 	// The size, based on the range of the laserscanner
 	int width, height;
@@ -21,7 +25,10 @@ struct ScanGrid {
 // A node in the graph, contains its own little occupancygrid to later be combined with all nodes in the map
 struct Node {
 	unsigned int id;
-	Pose robot_pose;
+	// This is the pose returned by th odometry model. It serves as an estimate for the scanmatcher
+	Pose odom_pose;
+	// This will be the true estimate of the pose
+	GraphPose graph_pose;
 	sensor_msgs::LaserScan laser_scan;
 	// The occupancygrid for the scan at this position
 	ScanGrid scan_grid;
