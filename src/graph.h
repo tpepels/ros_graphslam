@@ -53,7 +53,7 @@ struct Edge {
 	Node * parent;
 	Node * child;
 	//
-	double mean[3]quit;
+	double mean[3];
 	double covariance[3][3];
 };
 

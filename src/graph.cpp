@@ -278,12 +278,14 @@ void Graph::solve(unsigned int iterations){
     //Convert pose nodes to g2o node structure and add in the graph.
     for(unsigned int i = 0; i < node_list.size(); i ++){
         Node* curNode = &node_list[i];
+        ROS_INFO("Curnode id: %d", curNode->id);
         //Convert the node.
         GraphPose graph_pose = curNode->graph_pose;
         g2o::SE2 converted_pose(graph_pose.x, graph_pose.y, graph_pose.theta);
         //Create the vertex to put in the graph.
         g2o::VertexSE2* vertex = new g2o::VertexSE2;
         vertex->setId(curNode->id);
+        ROS_INFO("Converted node id: %d", vertex->id());
         vertex->setEstimate(converted_pose);
         //Add to the graph
         sparseOptimizer.addVertex(vertex);
@@ -296,6 +298,7 @@ void Graph::solve(unsigned int iterations){
     for(unsigned int i = 0; i < edge_list.size(); i++) {
         ROS_INFO("Adding edge: %d", i);
         Edge* edge = &edge_list[i];
+        ROS_INFO("Edge parent id: %d, child id: %d", edge->parent->id, edge->child->id);
         GraphPose parent_pose = edge->parent->graph_pose;
         GraphPose child_pose = edge->child->graph_pose;
         //Convert the child and parent poses to g2o poses.
