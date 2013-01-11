@@ -49,11 +49,12 @@ struct Node {
 
 // An edge represents the connection between two nodes
 struct Edge {
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	Node * parent;
 	Node * child;
 	//
-	g2o::SE2 mean;
-	Matrix3d* covariance;
+	double mean[3]quit;
+	double covariance[3][3];
 };
 
 class Graph {

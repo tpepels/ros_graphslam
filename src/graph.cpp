@@ -10,14 +10,14 @@ typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
 typedef g2o::LinearSolverCSparse< SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
 
 Graph::Graph(double resolution, double range_threshold) {
-    ROS_INFO("Graph entering constructor");
+    //ROS_INFO("Graph entering constructor");
 	this->resolution = resolution;
 	this->range_threshold = range_threshold;
     this->idCounter = 1;
 };
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
-    ROS_INFO("Graph entering addNode");
+    //ROS_INFO("Graph entering addNode");
 	Node n;
     n.id = this->idCounter;
     idCounter++;
@@ -30,9 +30,9 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	n.laser_scan = scan;
 	n.scan_grid = scanToOccGrid(scan, n.graph_pose);
 	node_list.push_back(n);
-    ROS_INFO("Graph Added node with odometry x: %f, y: %f.", pose.position.x, pose.position.y);
+    //
     double mean[3];
-    Matrix3d covariance;
+    double covariance[3][3];
     //
     if(node_list.size() > 1){
         Edge e;
@@ -41,34 +41,39 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         //Calculate change in position
         double change_x = e.child->odom_pose.position.x - e.parent->odom_pose.position.x;
         double change_y = e.child->odom_pose.position.y - e.parent->odom_pose.position.y;
-        double change_theta = abs(tf::getYaw(e.child->odom_pose.orientation) - tf::getYaw(e.parent->odom_pose.orientation));
-        if (change_theta > PI) {
-            change_theta = 2 * PI - change_theta;
+        double change_theta = tf::getYaw(e.child->odom_pose.orientation) - tf::getYaw(e.parent->odom_pose.orientation);
+        if (change_theta >= PI) {
+            change_theta -= 2 * PI;
+        } else if (change_theta < -PI) {
+            change_theta += 2 * PI;
         }
+        GraphPose last_pose = e.parent->graph_pose;
 	    // Match the new node's scans to previous scans and add edges accordingly
         ScanMatcher matcher;
         if(matcher.scanMatch(scan, e.parent->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
-            g2o::SE2 se_mean(mean[0], mean[1], mean[2]);
-            e.mean = se_mean;
-            e.covariance = &covariance;
+            ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
+            memcpy(e.mean, mean, sizeof(double) * 3);
+            memcpy(e.covariance, covariance, sizeof(double) * 9);
             // Update the node's position according to the result from the scan-match
-            n.graph_pose.x = mean[0];
-            n.graph_pose.y = mean[1];
-            n.graph_pose.theta = mean[2];
+            n.graph_pose.x = last_pose.x + mean[0];
+            n.graph_pose.y = last_pose.y + mean[1];
+            n.graph_pose.theta = last_pose.theta + mean[2];
         } else {
             ROS_ERROR("Error scan matching!");
         }
         //
 	    edge_list.push_back(e);
     }
+    ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n.id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
+    ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n.id, n.graph_pose.x, n.graph_pose.y, n.graph_pose.theta);
     last_node = &n;
-    ROS_INFO("Graph finished addNode");
+    //ROS_INFO("Graph finished addNode");
 }
 ;
 
 // Combine the scan-grids in the nodes into a complete map!
 void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
-    ROS_INFO("Graph entering generateMap");
+    //ROS_INFO("Graph entering generateMap");
     // First we need to know the outer-bounds of the map
     double xmax = N_INF, xmin = P_INF, ymax = N_INF, ymin = P_INF;
     Node * node;
@@ -88,7 +93,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
         if (ymin > y - node->scan_grid.ymin * resolution)
             ymin = y - node->scan_grid.ymin * resolution;
     }
-    ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
+    //ROS_INFO("Graph map bounds: %f, %f, %f, %f", xmin, xmax, ymin, ymax);
     // Map size
     int map_height = round((ymax - ymin) / resolution);
     int map_width = round((xmax - xmin) / resolution);
@@ -97,7 +102,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     map_width += 2;
     map_height += 2;
     unsigned int map_size = (unsigned int)(map_height * map_width);
-    ROS_INFO("Graph map size: %d", map_size);
+    // ROS_INFO("Graph map size: %d", map_size);
     //
     cur_map.header.frame_id = "/odom";
     cur_map.header.stamp = ros::Time().now();
@@ -120,7 +125,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     // These will count how many times a position was blocked/free. All others will be unknown
     vector<unsigned int> pos_fr (map_size, 0);
     vector<unsigned int> pos_blocked (map_size, 0);
-    ROS_INFO("Graph combining local grids");
+    //ROS_INFO("Graph combining local grids");
     // Go through all nodes' scan-grids and maintain the position information for each
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
@@ -157,25 +162,25 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
             continue;
         }
         // Check if we are certain enough that a position is blocked
-        if ((double)pos_blocked[i] / (double)pos_seen[i] >= .4)
+        if ((double)pos_blocked[i] / (double)pos_seen[i] >= .25)
             cur_map.data[i] = 100;
         else
             cur_map.data[i] = 0;
     }
-    ROS_INFO("Graph finished generateMap");
+    //ROS_INFO("Graph finished generateMap");
 }
 ;
 
 // Take a scan as input, generate a small, local occupancy grid
 ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose) {
-    ROS_INFO("Graph entering scanToOccGrid");
+    //ROS_INFO("Graph entering scanToOccGrid");
 	ScanGrid new_grid;
 	double angle_incr = scan.angle_increment;
 	// First we need to know the size and bounds of the grid.
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
     double scan_angle, min_angle = scan.angle_min;
     int num_scans = scan.ranges.size();
-    ROS_INFO("Graph Generating local occ grid at x: %f, y: %f t: %f.", pose.x, pose.y, pose.theta);
+    //ROS_INFO("Graph Generating local occ grid at x: %f, y: %f t: %f.", pose.x, pose.y, pose.theta);
     // Get the scan positions the bound the grid
     for (int i = 0; i < num_scans; i++)
     {
@@ -194,7 +199,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose) {
     new_grid.ymin = round((pose.y - ymin) / resolution);
     new_grid.xmax = round((xmax - pose.x) / resolution);
     new_grid.xmin = round((pose.x - xmin) / resolution);
-    ROS_INFO("Graph local occ grid bounds: xmax: %f, ymax: %f, xmin: %f, ymin: %f.", ymax, xmax, ymin, xmin);
+    //ROS_INFO("Graph local occ grid bounds: xmax: %f, ymax: %f, xmin: %f, ymin: %f.", ymax, xmax, ymin, xmin);
     // Size of the grid can be computed with the bounds
     new_grid.height = new_grid.ymax + new_grid.ymin;
     new_grid.width =  new_grid.xmax + new_grid.xmin;
@@ -256,7 +261,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose) {
                 new_grid.grid[index] = -1;
         }
     }
-    ROS_INFO("Graph finished scanToOccGrid");
+    //ROS_INFO("Graph finished scanToOccGrid");
     return new_grid;
 }
 ;
@@ -285,10 +290,11 @@ void Graph::solve(unsigned int iterations){
     }
 
     //Set one pose fixed, to reduce complexity. This pose wont be changed by the optimizer.
-    sparseOptimizer.vertex(0)->setFixed(true);
+    sparseOptimizer.vertex(1)->setFixed(true);
 
     //Convert the edges to g2o edges and add them in the graph
-    for(unsigned int i = 0; i < edge_list.size(); i++){
+    for(unsigned int i = 0; i < edge_list.size(); i++) {
+        ROS_INFO("Adding edge: %d", i);
         Edge* edge = &edge_list[i];
         GraphPose parent_pose = edge->parent->graph_pose;
         GraphPose child_pose = edge->child->graph_pose;
@@ -302,8 +308,13 @@ void Graph::solve(unsigned int iterations){
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent->id);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child->id);
         //
-        graph_edge->setMeasurement(edge->mean);
-        Matrix3d cov = *edge->covariance;
+        g2o::SE2 se_mean(edge->mean[0], edge->mean[1], edge->mean[2]);
+        graph_edge->setMeasurement(se_mean);
+        Matrix3d cov;
+        cov = MatrixXd::Zero(3,3);
+        cov(0,0) = edge->covariance[0][0];
+        cov(1,1) = edge->covariance[1][1];
+        cov(2,2) = edge->covariance[2][2];
         graph_edge->setInformation(cov.inverse());
         //Add edge to optimizer
         sparseOptimizer.addEdge(graph_edge);
@@ -316,7 +327,7 @@ void Graph::solve(unsigned int iterations){
     //Convert the solved poses back
     for(unsigned int i = 0; i < node_list.size(); i++){
         GraphPose* currentPose = &node_list[i].graph_pose;
-        g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(i))->estimate();
+        g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i].id))->estimate();
         currentPose->x = optimized_pose[0];
         currentPose->y = optimized_pose[1];
         currentPose->theta = optimized_pose[2];
