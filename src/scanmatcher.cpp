@@ -70,7 +70,7 @@ bool ScanMatcher::setBasetoLaserTransform(const std::string& frame_id){
   return true;
 };
 
-void ScanMatcher::convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp){
+void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   unsigned int numberOfScans = scan->ranges.size();
   ldp = ld_alloc_new(numberOfScans);
   //
@@ -116,7 +116,7 @@ bool newKF(const tf::Transform& transform){
   return false;
 };
 
-bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[3][3]){
+bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -193,7 +193,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan_to_match, const sensor_msgs::LaserScan::ConstPtr& reference_scan, ros::Time time, double mean[3], double covariance[3][3]){
+bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double mean[3], double covariance[][3]){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {

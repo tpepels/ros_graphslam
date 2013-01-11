@@ -1,3 +1,5 @@
+#ifndef GRAPHSLAM_H
+#define GRAPHSLAM_H
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Pose.h"
@@ -22,6 +24,7 @@ public:
 private:
 	ros::Subscriber laserScan_Sub, odometry_Sub;
 	ros::Publisher map_publish, pose_publish, graph_publish;
+	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
 	Pose cur_pose;
 	sensor_msgs::LaserScan cur_scan;
@@ -29,8 +32,10 @@ private:
 	bool odom_updated, scan_updated, first_scan;
 	Graph* graph;
 	//
+	Pose getFramePose(string frame, string fixed_frame, ros::Time stamp);
 	void laserScan_callback(const sensor_msgs::LaserScan& msg);
 	void odom_callback(const nav_msgs::Odometry& msg);
 	void drawPoses();
 	void drawScans();
 };
+#endif

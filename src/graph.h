@@ -1,3 +1,5 @@
+#ifndef GRAPH_H
+#define GRAPH_H
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Pose.h"
@@ -28,7 +30,10 @@ struct Node {
 // An edge represents the connection between two nodes
 struct Edge {
 	Node * parent;
-	Node * child;	
+	Node * child;
+	//
+	double* mean;
+	double** covariance;
 };
 
 class Graph {
@@ -47,3 +52,4 @@ class Graph {
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
 };
+#endif
