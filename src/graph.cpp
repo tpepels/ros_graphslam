@@ -31,8 +31,8 @@ Graph::Graph(double resolution, double range_threshold) {
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     ROS_INFO("Graph entering addNode");
 	Node n;
-    //n.id = this->idCounter;
-    //idCounter++;
+    n.id = this->idCounter;
+    idCounter++;
 	n.odom_pose = pose;
     // set the true pose to the odometry initially
     n.graph_pose.x = pose.position.x;
@@ -44,17 +44,30 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	node_list.push_back(n);
     ROS_INFO("Graph Added node with odometry x: %f, y: %f.", pose.position.x, pose.position.y);
     double mean[3];
-    double covariance[3][3];
-	//Match the new node's scans to previous scans and add edges accordingly
-    ScanMatcher matcher;
-    if(!matcher.scanMatch(scan, ros::Time::now(), mean, covariance)){
-        ROS_ERROR("Error scan matching!");
-    }
+    Matrix3d covariance[3][3];
     //
-	Edge e;
-	e.parent = &node_list[node_list.size() - 2];
-	e.child = &node_list[node_list.size() - 1];
-	edge_list.push_back(e);
+    if(node_list.size() > 1){
+        Edge e;
+        e.parent = &node_list[node_list.size() - 2];
+        e.child = &node_list[node_list.size() - 1];
+        //Calculate change in position
+        double change_x = e.child->robot_pose.x - e.parent->robot_pose.x;
+        double change_y = e.child->robot_pose.y - e.parent->robot_pose.y;
+        double change_theta = abs(tf::getYaw(e.child->robot_pose.orientation) - tf::getYaw(e.parent->robot_pose.orientation));
+        if (change_theta > PI) {
+            change_theta = 2 * PI - change_theta;
+        }
+	    //Match the new node's scans to previous scans and add edges accordingly
+        ScanMatcher matcher;
+        if(matcher.scanMatch(scan, e.parent.laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
+            e.mean.set(mean[0], mean[1], mean[2]);
+            e.covariance = covariance;
+        }else{
+            ROS_ERROR("Error scan matching!");
+        }
+        //
+	    edge_list.push_back(e);
+    }
     last_node = &n;
     ROS_INFO("Graph finished addNode");
 }
@@ -272,7 +285,7 @@ void Graph::solve(unsigned int iterations){
         g2o::SE2 converted_pose(graph_pose.x, graph_pose.y, graph_pose.theta);
         //Create the vertex to put in the graph.
         g2o::VertexSE2* vertex = new g2o::VertexSE2;
-        vertex->setId(i + 1);
+        vertex->setId(node->id);
         vertex->setEstimate(converted_pose);
         //Add to the graph
         sparseOptimizer.addVertex(vertex);

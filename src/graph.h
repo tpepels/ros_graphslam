@@ -5,6 +5,7 @@
 #include "geometry_msgs/Pose.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "tf/transform_listener.h"
+#include <Eigen/Core>
 
 using namespace std;
 using namespace geometry_msgs;
@@ -39,8 +40,8 @@ struct Edge {
 	Node * parent;
 	Node * child;
 	//
-	double* mean;
-	double** covariance;
+	SE2 mean;
+	Matrix3d covariance;
 };
 
 class Graph {
@@ -58,8 +59,5 @@ class Graph {
 		Node * last_node;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
-		double currentMean[3];
-		double currentCovariance[3][3];
-
 };
 #endif

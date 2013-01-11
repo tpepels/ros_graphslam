@@ -116,7 +116,7 @@ bool newKF(const tf::Transform& transform){
   return false;
 };
 
-bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]){
+bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], Matrix3d covariance){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -169,7 +169,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
     //Set covariance
     for(unsigned int i = 0; i < output.cov_x_m.size1; i++){
       for(unsigned int j = 0; j < output.cov_x_m.size2; j++){
-        covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
+        covariance(i, j) = gsl_matrix_get(output.cov_x_m, i, j);
       }
     }
   }else{
@@ -193,7 +193,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double mean[3], double covariance[][3]){
+bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d covariance){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {
@@ -206,5 +206,5 @@ bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::
   last_time = scan->header.stamp;
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
-  return processScan(current_ldp, scan->header.stamp, mean, covariance);
+  return processScan(current_ldp, scan->header.stamp, change_x, change_y, change_theta, mean, covariance);
 };
