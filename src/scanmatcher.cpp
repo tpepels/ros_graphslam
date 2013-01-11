@@ -8,7 +8,7 @@ ScanMatcher::ScanMatcher() {
   initialized = false;
   //
   base_frame = "base_link";
-  fixed_frame = "world";
+  fixed_frame = "odom";
   keyframe_distance_linear = 0.10;
   keyframe_distance_angular = 10.0 * (PI / 180.0);
   //
