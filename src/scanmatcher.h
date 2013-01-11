@@ -46,5 +46,6 @@ class ScanMatcher {
   void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
   bool newKF(const tf::Transform& d);
   bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]);
+  bool scanMatch(sensor_msgs::LaserScan& scan, sensor_msgs::LaserScan& scan2, ros::Time time, double mean[3], double covariance[][3]);
 };
 #endif
