@@ -21,7 +21,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Set the initial pose to 0,0,0
 	cur_pose.position.x = 0.;
 	cur_pose.position.y = 0.;
-	cur_pose.orientation.w = 1.0;
+	cur_pose.orientation = tf::createQuaternionMsgFromYaw(0);
 	//
 	graph = new Graph(0.05, 0.9);
 	ROS_INFO("GraphSlam Constructor finished");
@@ -33,6 +33,31 @@ GraphSlam::~GraphSlam() {
 }
 ;
 
+Pose GraphSlam::getFramePose(string frame, string fixed_frame, ros::Time stamp) {
+	// Wait for the transform to be available
+	tf_listener.waitForTransform(frame, fixed_frame, stamp, ros::Duration(1.0));
+	tf::Pose pose;
+	pose.setOrigin(tf::Vector3(0, 0, 0));
+	pose.setRotation(tf::createQuaternionFromYaw(0));
+	// Transform message
+	geometry_msgs::PoseStamped pose_stamped;
+	pose_stamped.header.frame_id = frame;
+	pose_stamped.header.stamp = stamp;
+	tf::poseTFToMsg(pose, pose_stamped.pose);
+	// Transform
+	geometry_msgs::PoseStamped result_msg;
+	tf_listener.transformPose(fixed_frame, pose_stamped, result_msg);
+	// Get the pose
+	tf::Stamped<tf::Pose> tf_pose;
+	tf::poseStampedMsgToTF(result_msg, tf_pose);
+
+	Pose result;
+	result.position.x = tf_pose.getOrigin().getX();
+	result.position.y = tf_pose.getOrigin().getY();
+	result.orientation = tf::createQuaternionMsgFromYaw(tf::getYaw(tf_pose.getRotation()));
+
+	return result;
+}
 
 void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 	scan_updated = true;
@@ -48,7 +73,8 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
 
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 	if(scan_updated) {
-		float new_x = msg.pose.pose.position.x, new_y = msg.pose.pose.position.y;
+		Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
+		float new_x = new_pose.position.x, new_y = new_pose.position.y;
 		float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
 		float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(msg.pose.pose.orientation));
 		if (rot_dist > PI) {
@@ -56,7 +82,7 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 		}
 		if(distance >= MIN_DIST || rot_dist >= MIN_ROT) {
 			ROS_INFO("GraphSlam odom dist ok!");
-			cur_pose = msg.pose.pose;
+			cur_pose = new_pose;
 			odom_updated = true;
 		}
 	}
@@ -111,7 +137,7 @@ void GraphSlam::drawPoses(){
 	}
 	pose_publish.publish(poses);
 	// Publish the edges between all poses
-	for(unsigned int i = 0; i < graph->edge_list.size() - 1; i++) {
+	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		geometry_msgs::Point start;
 		//
 		Pose * pose;
