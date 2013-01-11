@@ -12,6 +12,7 @@
 #include "geometry_msgs/PoseStamped.h"
 //
 #include <csm/csm_all.h>
+#include <gsl/gsl_matrix.h> //Hier zit covariance in
 
 using namespace std;
 
@@ -19,6 +20,7 @@ class ScanMatcher {
  public:
   ScanMatcher();
  private:
+  const double PI = 3.14159265359;
   sm_params input;
   sm_result output;
   //
@@ -32,9 +34,14 @@ class ScanMatcher {
   tf::Transform base_to_laser;
   //
   ros::Time last_time;
+  bool initialized;
+  tf::TransformListener tf_listener;
+  td::string base_frame, fixed_frame;
+  double keyframe_distance_linear, keyframe_distance_angular;
 
   bool setBasetoLaserTransform(const std::string& frame_id);
   void convertScantoDLP(const sensor_msgs::LaserScan::ConstPtr& scan, LDP& ldp);
-  void processScan(LDP& ldp, ros::Time time);
-  void scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time);
+  bool newKF(const tf::Transform& d);
+  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[3][3]);
+  bool scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, double mean[3], double covariance[3][3]);
 };

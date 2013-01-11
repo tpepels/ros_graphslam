@@ -10,6 +10,8 @@
 #include "g2o/types/slam2d/se2.h"
 #include "g2o/types/slam2d/edge_se2.h"
 #include "g2o/types/slam2d/vertex_se2.h"
+//
+#include "scanmatcher.h"
 
 using namespace std;
 
@@ -38,7 +40,13 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	n.scan_grid = scanToOccGrid(scan, pose);
 	node_list.push_back(n);
     ROS_INFO("Graph Added node with x: %f, y: %f.", pose.position.x, pose.position.y);
-	// TODO: Match the new node's scans to previous scans and add edges accordingly
+	//Match the new node's scans to previous scans and add edges accordingly
+    ScanMatcher matcher;
+    if(matcher.scanMatch(scan, ros::Time::now(), double mean[3], double covariance[3][3])){
+        this->currentMean = mean;
+        this->currentCovariance = covariance;
+    }
+    //
 	Edge e;
 	e.parent = &node_list[node_list.size() - 2];
 	e.child = &node_list[node_list.size() - 1];
@@ -289,8 +297,8 @@ void Graph::solve(unsigned int iterations){
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent->id);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child->id);
         //TODO: Set information of edge
-        // graph_edge->setMeasurement(edge->mean);        
-        // graph_edge->setInformation(edge->covariance);
+        graph_edge->setMeasurement(edge->mean);        
+        graph_edge->setInformation(edge->covariance);
         //Add edge to optimizer
         sparseOptimizer.addEdge(graph_edge);
     }

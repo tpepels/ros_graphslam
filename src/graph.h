@@ -46,5 +46,7 @@ class Graph {
 		Node * last_node;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
+		double currentMean[3];
+		double currentCovariance[3][3];
 
 };
