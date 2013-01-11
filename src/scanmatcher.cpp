@@ -193,7 +193,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::bool scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan_to_match, const sensor_msgs::LaserScan::ConstPtr& reference_scan, ros::Time time, double mean[3], double covariance[3][3]){
+bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan_to_match, const sensor_msgs::LaserScan::ConstPtr& reference_scan, ros::Time time, double mean[3], double covariance[3][3]){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {
