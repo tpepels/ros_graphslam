@@ -179,10 +179,10 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   //Update variables
   if(newKF(correct_change)){
     ld_free(previous_ldp);
-    previous_ldp = current_ldp;
+    previous_ldp = ldp;
     fixed_to_base_keyframe = fixed_to_base;
   }else{
-    ld_free(current_ldp);
+    ld_free(ldp);
   }
   last_time = time;
   //Return
@@ -193,18 +193,18 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan, ros::Time time, double mean[3], double covariance[3][3]){
+bool ScanMatcher::bool scanMatch(const sensor_msgs::LaserScan::ConstPtr& scan_to_match, const sensor_msgs::LaserScan::ConstPtr& reference_scan, ros::Time time, double mean[3], double covariance[3][3]){
   if(!initialized){
     while(!getBaseToLaserTf(scan_msg->header.frame_id))
     {
       ROS_WARN("Error while waiting for transform.");
       return;
-    }
-    convertScantoDLP(scan, previous_ldp);
-    last_time = scan->header.stamp;
+    }  
     initialized = true;
   }
+  convertScantoDLP(reference_scan, previous_ldp);
+  last_time = scan->header.stamp;
   LDP current_ldp;
-  convertScantoDLP(scan, current_ldp);
+  convertScantoDLP(scan_to_match, current_ldp);
   return processScan(current_ldp, scan->header.stamp, mean, covariance);
 };
