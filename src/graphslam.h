@@ -1,3 +1,5 @@
+#ifndef GRAPHSLAM_H
+#define GRAPHSLAM_H
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Pose.h"
@@ -36,3 +38,4 @@ private:
 	void drawPoses();
 	void drawScans();
 };
+#endif

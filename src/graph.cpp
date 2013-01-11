@@ -15,10 +15,8 @@
 
 using namespace std;
 
-
 const int N_INF = -9999999;
 const int P_INF = 9999999;
-const double PI = 3.141592654;
 
 typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
 typedef g2o::LinearSolverCSparse< SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
@@ -40,11 +38,12 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
 	n.scan_grid = scanToOccGrid(scan, pose);
 	node_list.push_back(n);
     ROS_INFO("Graph Added node with x: %f, y: %f.", pose.position.x, pose.position.y);
+    double mean[3];
+    double covariance[3][3];
 	//Match the new node's scans to previous scans and add edges accordingly
     ScanMatcher matcher;
-    if(matcher.scanMatch(scan, ros::Time::now(), double mean[3], double covariance[3][3])){
-        this->currentMean = mean;
-        this->currentCovariance = covariance;
+    if(!matcher.scanMatch(scan, ros::Time::now(), mean, covariance)){
+        ROS_ERROR("Error scan matching!");
     }
     //
 	Edge e;
