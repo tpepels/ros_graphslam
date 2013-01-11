@@ -3,13 +3,13 @@
 using namespace std;
 using namespace geometry_msgs;
 
-const float MIN_DIST = 0.5, MIN_ROT = 0.5;
+const float MIN_DIST = 0.25, MIN_ROT = 0.3;
 const float PI = 3.141592654;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
-	laserScan_Sub = nh.subscribe("base_scan", 100, &GraphSlam::laserScan_callback, this);
-	odometry_Sub = nh.subscribe("odom", 100, &GraphSlam::odom_callback, this);
+	laserScan_Sub = nh.subscribe("base_scan", 10, &GraphSlam::laserScan_callback, this);
+	odometry_Sub = nh.subscribe("odom", 10, &GraphSlam::odom_callback, this);
 	//
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
 	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/pose", 1);
@@ -96,26 +96,32 @@ void GraphSlam::spin() {
 		ros::spinOnce(); // Need to call this function often to allow ROS to process incoming messages
 		// Check if messages have been received
 		if(odom_updated && scan_updated) {
-			ROS_INFO("GraphSlam odom and scan updated!");
+			// ROS_INFO("GraphSlam odom and scan updated!");
 			graph->addNode(cur_pose, cur_scan);
-			//
-			geometry_msgs::PoseStamped p;
-			p.header.stamp = ros::Time().now();
-  			p.header.frame_id = "/odom";
-  			p.pose.position.x = graph->last_node->graph_pose.x;
-  			p.pose.position.y = graph->last_node->graph_pose.y;
-  			p.pose.orientation = tf::createQuaternionMsgFromYaw(graph->last_node->graph_pose.theta);
-  			pose_publisher.publish(p);
 			//
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
-			ROS_INFO("GraphSlam Map generated");
+			//
+			if(graph->node_list.size() > 2)
+				graph->solve(10);
+			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
-			//this->drawPoses();
-			ROS_INFO("GraphSlam Map published");
+			// this->drawPoses();
+			// ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
 			scan_updated = false;
+			//
+			GraphPose last_pose = graph->last_node->graph_pose;
+			geometry_msgs::PoseStamped p;
+			p.header.stamp = ros::Time().now();
+  			p.header.frame_id = "/odom";
+  			p.pose.position.x = last_pose.x;
+  			p.pose.position.y = last_pose.y;
+  			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
+  			pose_publisher.publish(p);
+  			ROS_INFO("Published last known pose: x: %f, y %f, t: %f", p.pose.position.x, p.pose.position.y, tf::getYaw(p.pose.orientation));
+  			ROS_INFO("? Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
