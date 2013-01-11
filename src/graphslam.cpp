@@ -14,6 +14,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
 	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/pose", 1);
 	graph_publish = nh.advertise<visualization_msgs::Marker>("/graph_vis", 1);
+	pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/last_pose", 1);
 	//
 	odom_updated = false;
 	scan_updated = false;
@@ -97,6 +98,15 @@ void GraphSlam::spin() {
 		if(odom_updated && scan_updated) {
 			ROS_INFO("GraphSlam odom and scan updated!");
 			graph->addNode(cur_pose, cur_scan);
+			//
+			geometry_msgs::PoseStamped p;
+			p.header.stamp = ros::Time().now();
+  			p.header.frame_id = "/odom";
+  			p.pose.x = graph->last_node->graph_pose.x;
+  			p.pose.y = graph->last_node->graph_pose.y;
+  			p.pose.orientation = tf::createQuaternionMsgFromYaw(graph->last_node->graph_pose.theta);
+  			pose_publisher.publish(p);
+			//
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			ROS_INFO("GraphSlam Map generated");

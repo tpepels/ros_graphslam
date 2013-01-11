@@ -23,7 +23,7 @@ public:
 	void spin();
 private:
 	ros::Subscriber laserScan_Sub, odometry_Sub;
-	ros::Publisher map_publish, pose_publish, graph_publish;
+	ros::Publisher map_publish, pose_publish, graph_publish, pose_publisher;
 	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
 	Pose cur_pose;

@@ -49,6 +49,7 @@ class Graph {
 	public:
 		vector<Node> node_list;
 		vector<Edge> edge_list;
+		Node * last_node;
 		//
 		Graph(double resolution, double range_threshold);
 		void addNode(Pose pose, sensor_msgs::LaserScan scan);
@@ -56,7 +57,6 @@ class Graph {
 		void solve(unsigned int iterations);
 	private:
 		unsigned int idCounter;
-		Node * last_node;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, Pose& pose);
 };

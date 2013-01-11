@@ -57,12 +57,16 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         if (change_theta > PI) {
             change_theta = 2 * PI - change_theta;
         }
-	    //Match the new node's scans to previous scans and add edges accordingly
+	    // Match the new node's scans to previous scans and add edges accordingly
         ScanMatcher matcher;
         if(matcher.scanMatch(scan, e.parent.laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
             e.mean.set(mean[0], mean[1], mean[2]);
             e.covariance = covariance;
-        }else{
+            // Update the node's position according to the result from the scan-match
+            n.graph_pose.x = mean[0];
+            n.graph_pose.y = mean[1];
+            n.graph_pose.theta = mean[2];
+        } else {
             ROS_ERROR("Error scan matching!");
         }
         //
