@@ -50,8 +50,7 @@ struct Node {
 // An edge represents the connection between two nodes
 struct Edge {
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-	Node * parent;
-	Node * child;
+	unsigned int parent_id, child_id;
 	//
 	double mean[3];
 	double covariance[3][3];

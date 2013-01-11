@@ -156,6 +156,7 @@ void GraphSlam::drawPoses(){
 	}
 	pose_publish.publish(poses);
 	// Publish the edges between all poses
+	/*
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		geometry_msgs::Point start;
 		//
@@ -180,6 +181,7 @@ void GraphSlam::drawPoses(){
 	}
 	//
 	graph_publish.publish(edges_message);
+	*/
 }
 ;
 

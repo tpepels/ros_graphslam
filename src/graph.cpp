@@ -35,22 +35,23 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     double covariance[3][3];
     //
     if(node_list.size() > 1){
+        // Add the link between the current and the previous node
         Edge e;
-        e.parent = &node_list[node_list.size() - 2];
-        e.child = &node_list[node_list.size() - 1];
+        e.child_id = n.id;
+        e.parent_id = last_node->id;
         //Calculate change in position
-        double change_x = e.child->odom_pose.position.x - e.parent->odom_pose.position.x;
-        double change_y = e.child->odom_pose.position.y - e.parent->odom_pose.position.y;
-        double change_theta = tf::getYaw(e.child->odom_pose.orientation) - tf::getYaw(e.parent->odom_pose.orientation);
+        double change_x = n.odom_pose.position.x - last_node->odom_pose.position.x;
+        double change_y = n.odom_pose.position.y - last_node->odom_pose.position.y;
+        double change_theta = tf::getYaw(n.odom_pose.orientation) - tf::getYaw(last_node->odom_pose.orientation);
         if (change_theta >= PI) {
             change_theta -= 2 * PI;
         } else if (change_theta < -PI) {
             change_theta += 2 * PI;
         }
-        GraphPose last_pose = e.parent->graph_pose;
+        GraphPose last_pose = last_node->graph_pose;
 	    // Match the new node's scans to previous scans and add edges accordingly
         ScanMatcher matcher;
-        if(matcher.scanMatch(scan, e.parent->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
+        if(matcher.scanMatch(scan, last_node->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
             ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             memcpy(e.mean, mean, sizeof(double) * 3);
             memcpy(e.covariance, covariance, sizeof(double) * 9);
@@ -298,18 +299,11 @@ void Graph::solve(unsigned int iterations){
     for(unsigned int i = 0; i < edge_list.size(); i++) {
         ROS_INFO("Adding edge: %d", i);
         Edge* edge = &edge_list[i];
-        ROS_INFO("Edge parent id: %d, child id: %d", edge->parent->id, edge->child->id);
-        GraphPose parent_pose = edge->parent->graph_pose;
-        GraphPose child_pose = edge->child->graph_pose;
-        //Convert the child and parent poses to g2o poses.
-        g2o::SE2 converted_parent_pose(parent_pose.x, parent_pose.y, parent_pose.theta);
-        g2o::SE2 converted_child_pose(child_pose.x, child_pose.y, child_pose.theta);
-        //
-        g2o::SE2 difference = converted_parent_pose.inverse() * converted_child_pose;
+        ROS_INFO("Edge parent id: %d, child id: %d", edge->parent_id, edge->child_id);
         //Actually make the edge for the optimizer.
         g2o::EdgeSE2* graph_edge = new g2o::EdgeSE2;
-        graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent->id);
-        graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child->id);
+        graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent_id);
+        graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child_id);
         //
         g2o::SE2 se_mean(edge->mean[0], edge->mean[1], edge->mean[2]);
         graph_edge->setMeasurement(se_mean);
