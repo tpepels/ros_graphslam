@@ -116,7 +116,7 @@ bool ScanMatcher::newKF(const tf::Transform& transform){
   return false;
 };
 
-bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], Matrix3d covariance){
+bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[], Matrix3d& covariance){
   //Reset variables of previous_ldp
   previous_ldp->odometry[0] = 0.0;
   previous_ldp->odometry[1] = 0.0;
@@ -194,7 +194,7 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }
 };
 
-bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d covariance){
+bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d& covariance){
   if(!initialized){
     while(!setBasetoLaserTransform(scan_to_match.header.frame_id))
     {
@@ -206,6 +206,8 @@ bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::
   convertScantoDLP(reference_scan, previous_ldp);
   last_time = scan_to_match.header.stamp;
   LDP current_ldp;
+  input.min_reading = scan_to_match.range_min;
+  input.max_reading = scan_to_match.range_max;
   convertScantoDLP(scan_to_match, current_ldp);
   bool result = processScan(current_ldp, scan_to_match.header.stamp, change_x, change_y, change_theta, mean, covariance);
   return result;

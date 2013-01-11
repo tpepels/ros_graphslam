@@ -24,7 +24,7 @@ using namespace std;
 class ScanMatcher {
  public:
   ScanMatcher();
-  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d covariance);
+  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d& covariance);
  private:
   sm_params input;
   sm_result output;
@@ -47,6 +47,6 @@ class ScanMatcher {
   bool setBasetoLaserTransform(const std::string& frame_id);
   void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
   bool newKF(const tf::Transform& d);
-  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d covariance);
+  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], Matrix3d& covariance);
 };
 #endif

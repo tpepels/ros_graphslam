@@ -53,7 +53,7 @@ struct Edge {
 	Node * child;
 	//
 	g2o::SE2 mean;
-	Matrix3d covariance;
+	Matrix3d* covariance;
 };
 
 class Graph {

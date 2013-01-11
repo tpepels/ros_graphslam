@@ -50,7 +50,7 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         if(matcher.scanMatch(scan, e.parent->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
             g2o::SE2 se_mean(mean[0], mean[1], mean[2]);
             e.mean = se_mean;
-            e.covariance = covariance;
+            e.covariance = &covariance;
             // Update the node's position according to the result from the scan-match
             n.graph_pose.x = mean[0];
             n.graph_pose.y = mean[1];
@@ -302,8 +302,9 @@ void Graph::solve(unsigned int iterations){
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent->id);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child->id);
         //
-        graph_edge->setMeasurement(edge->mean);        
-        graph_edge->setInformation(edge->covariance.inverse());
+        graph_edge->setMeasurement(edge->mean);
+        Matrix3d cov = *edge->covariance;
+        graph_edge->setInformation(cov.inverse());
         //Add edge to optimizer
         sparseOptimizer.addEdge(graph_edge);
     }
