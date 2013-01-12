@@ -297,9 +297,9 @@ void Graph::solve(unsigned int iterations){
 
     //Convert the edges to g2o edges and add them in the graph
     for(unsigned int i = 0; i < edge_list.size(); i++) {
-        ROS_INFO("Adding edge: %d", i);
+        // ROS_INFO("Adding edge: %d", i);
         Edge* edge = &edge_list[i];
-        ROS_INFO("Edge parent id: %d, child id: %d", edge->parent_id, edge->child_id);
+        // ROS_INFO("Edge parent id: %d, child id: %d", edge->parent_id, edge->child_id);
         //Actually make the edge for the optimizer.
         g2o::EdgeSE2* graph_edge = new g2o::EdgeSE2;
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent_id);
@@ -325,8 +325,10 @@ void Graph::solve(unsigned int iterations){
     for(unsigned int i = 0; i < node_list.size(); i++){
         GraphPose* currentPose = &node_list[i].graph_pose;
         g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i].id))->estimate();
+        ROS_INFO("Node %d, pose after optimize: x %f, y %f, t %f", node_list[i].id, optimized_pose[0], optimized_pose[1], optimized_pose[2]);
         currentPose->x = optimized_pose[0];
         currentPose->y = optimized_pose[1];
         currentPose->theta = optimized_pose[2];
+        last_node = &node_list[i];
     }
 };

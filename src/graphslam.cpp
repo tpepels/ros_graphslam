@@ -5,6 +5,7 @@ using namespace geometry_msgs;
 
 const float MIN_DIST = 0.25, MIN_ROT = 0.3;
 const float PI = 3.141592654;
+const int SOLVE_STEPS = 10;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
@@ -102,7 +103,7 @@ void GraphSlam::spin() {
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			//
-			if(graph->node_list.size() > 2)
+			if(graph->node_list.size() > 2 && graph->node_list.size() % SOLVE_STEPS == 0)
 				graph->solve(10);
 			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);

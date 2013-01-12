@@ -1,5 +1,5 @@
-resolution 0.05 # set the resolution of the underlying raytrace model in meters
-interval_sim 100 # simulation timestep in milliseconds
+resolution 0.01 # set the resolution of the underlying raytrace model in meters
+interval_sim 50 # simulation timestep in milliseconds
 #interval_real 100
 
 window
@@ -35,11 +35,10 @@ define hokuyo ranger
   sensor(
     range [0 4.0]
     fov 270.25
-    samples 481
+    samples 1081
   )
   color "black"
-  size [ 0.050 0.050 0.100 ]
-  ctrl "lasernoise"
+  size [ 0.02 0.02 0.05 ]
 )
 
 
@@ -47,7 +46,7 @@ define hokuyo ranger
 define turtlebot position
 (
   localisation "odom"
-  #odom_error [0.01 0.05 0.01 0.02 0.5 1.0]
+  odom_error [0.03 0.03 0.05]
   size [0.350 0.350 0.450]
   origin [0.000 0.000 0.000 0.000]
   gui_nose 1
