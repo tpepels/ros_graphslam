@@ -110,7 +110,7 @@ void GraphSlam::spin() {
 			if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
 				graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
-			map_publish.publish(cur_map);
+			// map_publish.publish(cur_map);
 			this->drawPoses();
 			// this->drawScans();
 			// ROS_INFO("GraphSlam Map published");
@@ -154,9 +154,9 @@ void GraphSlam::drawPoses(){
 	// Publish all poses in the graph!
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
 		geometry_msgs::Pose new_pose;
-		new_pose.position.x = graph->node_list[i].graph_pose.x;
-		new_pose.position.y = graph->node_list[i].graph_pose.y;
-		new_pose.orientation = tf::createQuaternionMsgFromYaw(graph->node_list[i].graph_pose.theta);
+		new_pose.position.x = graph->node_list[i]->graph_pose.x;
+		new_pose.position.y = graph->node_list[i]->graph_pose.y;
+		new_pose.orientation = tf::createQuaternionMsgFromYaw(graph->node_list[i]->graph_pose.theta);
         poses.poses.push_back(new_pose);
 	}
 	pose_publish.publish(poses);
@@ -170,21 +170,21 @@ void GraphSlam::drawPoses(){
 		//
 		GraphPose * pose;
 		if(i > 0) { // First node has no parent
-			unsigned int edge_parent_id = graph->edge_list[i].parent_id;
+			unsigned int edge_parent_id = graph->edge_list[i]->parent_id;
 			if(i < (edge_list_size / 2.)){
 				for(unsigned int k = 0; k < node_list_size; k++){
-					if(graph->node_list[k].id == edge_parent_id){
-						pose = &(graph->node_list[i].graph_pose);
+					if(graph->node_list[k]->id == edge_parent_id){
+						pose = &(graph->node_list[i]->graph_pose);
 					}
 				}
 			}else{
 				for(int k = node_list_size - 1; k >= 0; k--){
-					if(graph->node_list[k].id == edge_parent_id){
-						pose = &(graph->node_list[i].graph_pose);
+					if(graph->node_list[k]->id == edge_parent_id){
+						pose = &(graph->node_list[i]->graph_pose);
 					}
 				}
 			}
-			// ROS_INFO("PARENT X: %d, Y: %d", pose->x, pose->y);
+			//ROS_INFO("PARENT X: %f, Y: %f", pose->x, pose->y);
 			start.x = pose->x;
 			start.y = pose->y;
 		} else {
@@ -193,21 +193,21 @@ void GraphSlam::drawPoses(){
 		}
 		//
 		geometry_msgs::Point end;
-		unsigned int edge_child_id = graph->edge_list[i].child_id;
+		unsigned int edge_child_id = graph->edge_list[i]->child_id;
 		if(i < (edge_list_size / 2.)){
 			for(unsigned int k = 0; k < node_list_size; k++){
-				if(graph->node_list[k].id == edge_child_id){
-					pose = &(graph->node_list[i].graph_pose);
+				if(graph->node_list[k]->id == edge_child_id){
+					pose = &(graph->node_list[i]->graph_pose);
 				}
 			}
 		}else{
 			for(int k = node_list_size - 1; k >= 0; k--){
-				if(graph->node_list[k].id == edge_child_id){
-					pose = &(graph->node_list[i].graph_pose);
+				if(graph->node_list[k]->id == edge_child_id){
+					pose = &(graph->node_list[i]->graph_pose);
 				}
 			}
 		}
-		// ROS_INFO("CHILD X: %d, Y: %d", pose->x, pose->y);
+		//ROS_INFO("CHILD X: %f, Y: %f", pose->x, pose->y);
 		end.x = pose->x;
 		end.y = pose->y;
 		//
@@ -233,23 +233,23 @@ void GraphSlam::drawScans(){
 	//
 	
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
-		float theta = graph->node_list[i].graph_pose.theta;
+		float theta = graph->node_list[i]->graph_pose.theta;
 		//
-		float minimal_angle = theta + graph->node_list[i].laser_scan.angle_min;
+		float minimal_angle = theta + graph->node_list[i]->laser_scan.angle_min;
 		float current_angle = minimal_angle;
-		float maximal_angle = theta + graph->node_list[i].laser_scan.angle_max;
+		float maximal_angle = theta + graph->node_list[i]->laser_scan.angle_max;
 		//
-		float angle_increment = graph->node_list[i].laser_scan.angle_increment;
-		float max_range = graph->node_list[i].laser_scan.range_max;
+		float angle_increment = graph->node_list[i]->laser_scan.angle_increment;
+		float max_range = graph->node_list[i]->laser_scan.range_max;
 		//
 		for(unsigned int j = 0; current_angle <= maximal_angle - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
-			float range = graph->node_list[i].laser_scan.ranges[j];
+			float range = graph->node_list[i]->laser_scan.ranges[j];
 			if(range == max_range){
 				continue;
 			}
 			//
-			float x = graph->node_list[i].graph_pose.x + cos(current_angle) * range;
-			float y = graph->node_list[i].graph_pose.y + sin(current_angle) * range;
+			float x = graph->node_list[i]->graph_pose.x + cos(current_angle) * range;
+			float y = graph->node_list[i]->graph_pose.y + sin(current_angle) * range;
 			//
 			geometry_msgs::Point point;
 			point.x = x;
