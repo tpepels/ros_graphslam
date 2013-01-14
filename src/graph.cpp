@@ -38,7 +38,18 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     n->graph_pose.y = pose.position.y;
     n->graph_pose.theta = tf::getYaw(pose.orientation);
     // Store the scans
-	n->laser_scan = scan;
+	// n->laser_scan = scan;
+
+    n->laser_scan.header = scan.header;
+    n->laser_scan.angle_min = scan.angle_min;
+    n->laser_scan.angle_max = scan.angle_max;
+    n->laser_scan.angle_increment = scan.angle_increment;
+    n->laser_scan.scan_time = scan.scan_time;
+    n->laser_scan.range_min = scan.range_min;
+    n->laser_scan.range_max = scan.range_max;
+    n->laser_scan.ranges = scan.ranges;
+    n->laser_scan.intensities = scan.intensities;
+
 	n->scan_grid = scanToOccGrid(scan, n->graph_pose);
 	node_list.push_back(n);
     //

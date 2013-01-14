@@ -110,8 +110,9 @@ void GraphSlam::spin() {
 			if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
 				graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
-			map_publish.publish(cur_map);
+			// map_publish.publish(cur_map);
 			this->drawPoses();
+			this->drawScans();
 			// ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
