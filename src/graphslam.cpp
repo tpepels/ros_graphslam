@@ -169,7 +169,7 @@ void GraphSlam::drawPoses(){
 		//
 		GraphPose * pose;
 		if(i > 0) { // First node has no parent
-			unsigned int edge_parent_id = graph->edge_list[i].parent_id;
+			unsigned int edge_parent_id = graph->edge_list[i]->parent_id;
 			if(i < (edge_list_size / 2.)){
 				for(unsigned int k = 0; k < node_list_size; k++){
 					if(graph->node_list[k]->id == edge_parent_id){
@@ -192,7 +192,7 @@ void GraphSlam::drawPoses(){
 		}
 		//
 		geometry_msgs::Point end;
-		unsigned int edge_child_id = graph->edge_list[i].child_id;
+		unsigned int edge_child_id = graph->edge_list[i]->child_id;
 		if(i < (edge_list_size / 2.)){
 			for(unsigned int k = 0; k < node_list_size; k++){
 				if(graph->node_list[k]->id == edge_child_id){

@@ -62,10 +62,11 @@ class Graph {
 
 	public:
 		vector<Node*> node_list;
-		vector<Edge> edge_list;
+		vector<Edge*> edge_list;
 		Node * last_node;
 		//
 		Graph(double resolution, double range_threshold);
+		~Graph();
 		void addNode(Pose pose, sensor_msgs::LaserScan scan);
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);

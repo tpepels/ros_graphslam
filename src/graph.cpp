@@ -15,6 +15,18 @@ Graph::Graph(double resolution, double range_threshold) {
     this->idCounter = 1;
 };
 
+Graph::~Graph(){
+    for(unsigned int i = 0; i < node_list.size(); i++){
+        delete &node_list[i];
+    }
+    delete &node_list;
+    //
+    for(unsigned int i = 0; i < edge_list.size(); i++){
+        delete &edge_list[i];
+    }
+    delete &edge_list;
+}
+
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     //ROS_INFO("Graph entering addNode");
 	Node * n = new Node();
@@ -35,9 +47,9 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     //
     if(node_list.size() > 1){
         // Add the link between the current and the previous node
-        Edge e;
-        e.child_id = n->id;
-        e.parent_id = last_node->id;
+        Edge * e = new Edge();
+        e->child_id = n->id;
+        e->parent_id = last_node->id;
         //Calculate change in position
         double change_x = n->odom_pose.position.x - last_node->odom_pose.position.x;
         double change_y = n->odom_pose.position.y - last_node->odom_pose.position.y;
@@ -48,15 +60,14 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         } else if (change_theta < -PI) {
             change_theta += 2 * PI;
         }
-
         //
         ROS_INFO("cx %f, cy %f. ct %f", change_x, change_y, change_theta);
         GraphPose last_pose = last_node->graph_pose;
 	    // Match the new node's scans to previous scans and add edges accordingly
         if(matcher.scanMatch(scan, last_node->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){            
             ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
-            memcpy(e.mean, mean, sizeof(double) * 3);
-            memcpy(e.covariance, covariance, sizeof(double) * 9);
+            memcpy(e->mean, mean, sizeof(double) * 3);
+            memcpy(e->covariance, covariance, sizeof(double) * 9);
             // Update the node's position according to the result from the scan-match
             n->graph_pose.x = mean[0]; //last_pose.x + mean[0];
             n->graph_pose.y = mean[1]; //last_pose.y + mean[1];
@@ -111,12 +122,12 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
             // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
             if (abs(dx - mean[0]) <= min_dist_delta && abs(dy - mean[1]) <= min_dist_delta && abs(dt - mean[2])) {
                 // Add the link between the current and the previous node
-                Edge e;
-                e.child_id = last_node->id;
-                e.parent_id = n->id;
+                Edge * e;
+                e->child_id = last_node->id;
+                e->parent_id = n->id;
                 //
-                memcpy(e.mean, mean, sizeof(double) * 3);
-                memcpy(e.covariance, cov, sizeof(double) * 9);
+                memcpy(e->mean, mean, sizeof(double) * 3);
+                memcpy(e->covariance, cov, sizeof(double) * 9);
                 edge_list.push_back(e);
                 ROS_INFO("Found a link between nodes %d and %d.", last_node->id, n->id);
             }
@@ -354,14 +365,22 @@ void Graph::solve(unsigned int iterations){
     //Convert the edges to g2o edges and add them in the graph
     for(unsigned int i = 0; i < edge_list.size(); i++) {
         // ROS_INFO("Adding edge: %d", i);
-        Edge* edge = &edge_list[i];
+        Edge* edge = edge_list[i];
         // ROS_INFO("Edge parent id: %d, child id: %d", edge->parent_id, edge->child_id);
         //Actually make the edge for the optimizer.
         g2o::EdgeSE2* graph_edge = new g2o::EdgeSE2;
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent_id);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child_id);
         //
-        g2o::SE2 se_mean(edge->mean[0], edge->mean[1], edge->mean[2]);
+        double new_x = edge->mean[0] - last_node->graph_pose.x;
+        double new_y = edge->mean[1] - last_node->graph_pose.y;
+        double new_theta = edge->mean[2] - last_node->graph_pose.theta;
+        if (new_theta >= PI) {
+            new_theta -= 2 * PI;
+        } else if (new_theta < -PI) {
+            new_theta += 2 * PI;
+        }
+        g2o::SE2 se_mean(new_x, new_y, new_theta);
         graph_edge->setMeasurement(se_mean);
         Matrix3d cov;
         cov = MatrixXd::Zero(3,3);
