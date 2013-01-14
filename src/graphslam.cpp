@@ -111,7 +111,7 @@ void GraphSlam::spin() {
 				graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
-			// this->drawPoses();
+			this->drawPoses();
 			// ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
@@ -160,13 +160,32 @@ void GraphSlam::drawPoses(){
 	pose_publish.publish(poses);
 
 	// Publish the edges between all poses
-	/*
+	ROS_INFO("Starting drawing edges.");
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
+		
+		unsigned int node_list_size = graph->node_list.size();
+		unsigned int edge_list_size = graph->edge_list.size();
 		geometry_msgs::Point start;
 		//
 		GraphPose * pose;
 		if(i > 0) { // First node has no parent
-			pose = &graph->edge_list[i].parent->graph_pose;
+			unsigned int edge_parent_id = graph->edge_list[i].parent_id;
+			if(i < (edge_list_size / 2.)){
+				for(unsigned int k = 0; k < node_list_size; k++){
+					if(graph->node_list[k].id == edge_parent_id){
+						ROS_INFO("MATCH PARENT");
+						pose = &graph->node_list[i].graph_pose;
+					}
+				}
+			}else{
+				for(int k = node_list_size - 1; k >= 0; k--){
+					if(graph->node_list[k].id == edge_parent_id){
+						ROS_INFO("MATCH PARENT");
+						pose = &graph->node_list[i].graph_pose;
+					}
+				}
+			}
+			ROS_INFO("PARENT X: %d, Y: %d", pose->x, pose->y);
 			start.x = pose->x;
 			start.y = pose->y;
 		} else {
@@ -175,7 +194,24 @@ void GraphSlam::drawPoses(){
 		}
 		//
 		geometry_msgs::Point end;
-		pose = &graph->edge_list[i].child->graph_pose;
+		unsigned int edge_child_id = graph->edge_list[i].child_id;
+		if(i < (edge_list_size / 2.)){
+			for(unsigned int k = 0; k < node_list_size; k++){
+				if(graph->node_list[k].id == edge_child_id){
+					ROS_INFO("MATCH CHILD");
+					pose = &graph->node_list[i].graph_pose;
+				}
+			}
+		}else{
+			for(int k = node_list_size - 1; k >= 0; k--){
+				if(graph->node_list[k].id == edge_child_id){
+					ROS_INFO("MATCH CHILD");
+					pose = &graph->node_list[i].graph_pose;
+				}
+			}
+		}
+		//
+		ROS_INFO("CHILD X: %d, Y: %d", pose->x, pose->y);
 		end.x = pose->x;
 		end.y = pose->y;
 		//
@@ -183,9 +219,9 @@ void GraphSlam::drawPoses(){
 		edges_message.points.push_back(end);
 		pose = 0;
 	}
+	ROS_INFO("Finish drawing edges.");
 	//
 	graph_publish.publish(edges_message);
-	*/
 }
 ;
 
