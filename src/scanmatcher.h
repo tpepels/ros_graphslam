@@ -25,29 +25,12 @@ using namespace std;
 class ScanMatcher {
  public:
   ScanMatcher();
-  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
+  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
  private:
   sm_params input;
   sm_result output;
   //
-  LDP previous_ldp;
-  //Pose of the base frame in fixed frame;
-  tf::Transform fixed_to_base;
-  //Pose of the last keyframe scan in fixed frame
-  tf::Transform fixed_to_base_keyframe;
-  //Used to convert poses between base of the robot and the laser scanner.
-  tf::Transform laser_to_base;
-  tf::Transform base_to_laser;
-  //
-  ros::Time last_time;
-  bool initialized;
-  tf::TransformListener tf_listener;
-  string base_frame, fixed_frame;
-  double keyframe_distance_linear, keyframe_distance_angular;
-
-  bool setBasetoLaserTransform(string& frame_id);
   void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
-  bool newKF(const tf::Transform& d);
-  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
+  bool processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]);
 };
 #endif

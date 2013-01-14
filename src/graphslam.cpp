@@ -16,7 +16,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	//
 	nh.param("resolution", resolution, 0.05);
     nh.param("solve_iterations", solve_iterations, 10);
-    nh.param("min_dist", min_dist, 0.25);
+    nh.param("min_dist", min_dist, 0.10);
     nh.param("min_rot", min_rot, 0.3);
     nh.param("solve_after_nodes", solve_after_nodes, 10);
     nh.param("laser_range_t", range_t, 0.9);
@@ -65,7 +65,7 @@ Pose GraphSlam::getFramePose(string frame, string fixed_frame, ros::Time stamp) 
 	return result;
 }
 
-void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
+void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
 	scan_updated = true;
 	cur_scan = msg;
 	// This means the robot is at the origin.
@@ -107,10 +107,10 @@ void GraphSlam::spin() {
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			//
-			if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
-				graph->solve(solve_iterations);
+			// if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
+			//	graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
-			// map_publish.publish(cur_map);
+			map_publish.publish(cur_map);
 			this->drawPoses();
 			// this->drawScans();
 			// ROS_INFO("GraphSlam Map published");
@@ -126,7 +126,7 @@ void GraphSlam::spin() {
   			p.pose.position.y = last_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
   			pose_publisher.publish(p);
-  			ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
+  			// ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate

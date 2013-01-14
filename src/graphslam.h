@@ -31,7 +31,7 @@ private:
 	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
 	Pose cur_pose;
-	sensor_msgs::LaserScan cur_scan;
+	sensor_msgs::LaserScan::ConstPtr cur_scan;
 	double resolution, min_dist, min_rot, range_t;
 	int solve_after_nodes, solve_iterations;
 	//
@@ -39,7 +39,7 @@ private:
 	Graph* graph;
 	//
 	Pose getFramePose(string frame, string fixed_frame, ros::Time stamp);
-	void laserScan_callback(const sensor_msgs::LaserScan& msg);
+	void laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
 	void odom_callback(const nav_msgs::Odometry& msg);
 	void drawPoses();
 	void drawScans();

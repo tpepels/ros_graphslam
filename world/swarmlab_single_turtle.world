@@ -1,5 +1,5 @@
 resolution 0.01 # set the resolution of the underlying raytrace model in meters
-interval_sim 100 # simulation timestep in milliseconds
+interval_sim 60 # simulation timestep in milliseconds
 #interval_real 100
 
 window
@@ -46,7 +46,7 @@ define hokuyo ranger
 define turtlebot position
 (
   localisation "odom"
-  odom_error [0.03 0.03 0.05]
+  odom_error [0.01 0.05 0.01 0.02 0.5 1.0]
   size [0.350 0.350 0.450]
   origin [0.000 0.000 0.000 0.000]
   gui_nose 1
