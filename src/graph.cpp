@@ -62,11 +62,20 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         }
         //
         ROS_INFO("cx %f, cy %f. ct %f", change_x, change_y, change_theta);
-        GraphPose last_pose = last_node->graph_pose;
+        // GraphPose last_pose = last_node->graph_pose;
 	    // Match the new node's scans to previous scans and add edges accordingly
         if(matcher.scanMatch(scan, last_node->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){            
             ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             memcpy(e->mean, mean, sizeof(double) * 3);
+            e->mean[0] -= last_node->graph_pose.x;
+            e->mean[1] -= last_node->graph_pose.y;
+            e->mean[2] -= last_node->graph_pose.theta;
+            //
+            if (e->mean[2] >= PI) {
+                e->mean[2] -= 2 * PI;
+            } else if (e->mean[2] < -PI) {
+                e->mean[2] += 2 * PI;
+            }
             memcpy(e->covariance, covariance, sizeof(double) * 9);
             // Update the node's position according to the result from the scan-match
             n->graph_pose.x = mean[0]; //last_pose.x + mean[0];
@@ -372,15 +381,7 @@ void Graph::solve(unsigned int iterations){
         graph_edge->vertices()[0] = sparseOptimizer.vertex(edge->parent_id);
         graph_edge->vertices()[1] = sparseOptimizer.vertex(edge->child_id);
         //
-        double new_x = edge->mean[0] - last_node->graph_pose.x;
-        double new_y = edge->mean[1] - last_node->graph_pose.y;
-        double new_theta = edge->mean[2] - last_node->graph_pose.theta;
-        if (new_theta >= PI) {
-            new_theta -= 2 * PI;
-        } else if (new_theta < -PI) {
-            new_theta += 2 * PI;
-        }
-        g2o::SE2 se_mean(new_x, new_y, new_theta);
+        g2o::SE2 se_mean(edge->mean[0], edge->mean[1], edge->mean[2]);
         graph_edge->setMeasurement(se_mean);
         Matrix3d cov;
         cov = MatrixXd::Zero(3,3);
