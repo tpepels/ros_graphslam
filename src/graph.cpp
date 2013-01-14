@@ -17,17 +17,17 @@ Graph::Graph(double resolution, double range_threshold) {
 
 void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     //ROS_INFO("Graph entering addNode");
-	Node n;
-    n.id = this->idCounter;
+	Node * n = new Node();
+    n->id = this->idCounter;
     idCounter++;
-	n.odom_pose = pose;
+	n->odom_pose = pose;
     // set the true pose to the odometry initially
-    n.graph_pose.x = pose.position.x;
-    n.graph_pose.y = pose.position.y;
-    n.graph_pose.theta = tf::getYaw(pose.orientation);
+    n->graph_pose.x = pose.position.x;
+    n->graph_pose.y = pose.position.y;
+    n->graph_pose.theta = tf::getYaw(pose.orientation);
     // Store the scans
-	n.laser_scan = scan;
-	n.scan_grid = scanToOccGrid(scan, n.graph_pose);
+	n->laser_scan = scan;
+	n->scan_grid = scanToOccGrid(scan, n->graph_pose);
 	node_list.push_back(n);
     //
     double mean[3];
@@ -36,40 +36,46 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     if(node_list.size() > 1){
         // Add the link between the current and the previous node
         Edge e;
-        e.child_id = n.id;
+        e.child_id = n->id;
         e.parent_id = last_node->id;
         //Calculate change in position
-        double change_x = n.odom_pose.position.x - last_node->odom_pose.position.x;
-        double change_y = n.odom_pose.position.y - last_node->odom_pose.position.y;
-        double change_theta = tf::getYaw(n.odom_pose.orientation) - tf::getYaw(last_node->odom_pose.orientation);
+        double change_x = n->odom_pose.position.x - last_node->odom_pose.position.x;
+        double change_y = n->odom_pose.position.y - last_node->odom_pose.position.y;
+        double change_theta = tf::getYaw(n->odom_pose.orientation) - tf::getYaw(last_node->odom_pose.orientation);
+        //
         if (change_theta >= PI) {
             change_theta -= 2 * PI;
         } else if (change_theta < -PI) {
             change_theta += 2 * PI;
         }
+
+        //
+        ROS_INFO("cx %f, cy %f. ct %f", change_x, change_y, change_theta);
         GraphPose last_pose = last_node->graph_pose;
 	    // Match the new node's scans to previous scans and add edges accordingly
-        if(matcher.scanMatch(scan, last_node->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){
-            // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
+        if(matcher.scanMatch(scan, last_node->laser_scan, ros::Time::now(), change_x, change_y, change_theta, mean, covariance)){            
+            ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             memcpy(e.mean, mean, sizeof(double) * 3);
             memcpy(e.covariance, covariance, sizeof(double) * 9);
             // Update the node's position according to the result from the scan-match
-            n.graph_pose.x = last_pose.x + mean[0];
-            n.graph_pose.y = last_pose.y + mean[1];
-            n.graph_pose.theta = last_pose.theta + mean[2];
+            n->graph_pose.x = mean[0]; //last_pose.x + mean[0];
+            n->graph_pose.y = mean[1]; //last_pose.y + mean[1];
+            n->graph_pose.theta = mean[2]; //last_pose.theta + mean[2];
         } else {
             ROS_ERROR("Error scan matching!");
         }
         //
 	    edge_list.push_back(e);
+        last_node = n;
+        //
+        if(sqrt(pow(change_x, 2) + pow(change_y, 2)) > 0) {
+            // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
+        }
+    } else {
+        last_node = n;
     }
-    // ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n.id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
-    ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n.id, n.graph_pose.x, n.graph_pose.y, n.graph_pose.theta);
-    last_node = &n;
-    //
-    if(sqrt(pow(dx, 2) + pow(dy, 2)) > 0) {
-        // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
-    }
+    ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n->id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
+    ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n->id, n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
 }
 ;
 
@@ -81,7 +87,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
     double distance, dt, dx, dy;
     Node* n;
     for(int i = 0; i < (int)(node_list.size() - close_limit); i += step_size) {
-        n = &node_list[i];
+        n = node_list[i];
         if (n->id == last_node->id)
             continue;
         //
@@ -129,7 +135,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     Node * node;
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        node = &node_list[i];
+        node = node_list[i];
         float x = node->graph_pose.x, y = node->graph_pose.y;
         if (xmax < x + node->scan_grid.xmax * resolution)
             xmax = x + node->scan_grid.xmax * resolution;
@@ -179,7 +185,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     // Go through all nodes' scan-grids and maintain the position information for each
     for (unsigned int i = 0; i < node_list.size(); i++)
     {
-        node = &node_list[i];
+        node = node_list[i];
         float x = node->graph_pose.x, y = node->graph_pose.y;
         int node_x = round((x - xmin) / resolution) - node->scan_grid.xmin;
         int node_y = round((y - ymin) / resolution) - node->scan_grid.ymin;
@@ -317,6 +323,7 @@ ScanGrid Graph::scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose) {
 ;
 
 void Graph::solve(unsigned int iterations){
+    ROS_INFO("SOLVING!");
     //Setup solver
     g2o::SparseOptimizer sparseOptimizer;
     SlamLinearSolver* linearSolver = new SlamLinearSolver();
@@ -327,7 +334,7 @@ void Graph::solve(unsigned int iterations){
 
     //Convert pose nodes to g2o node structure and add in the graph.
     for(unsigned int i = 0; i < node_list.size(); i ++){
-        Node* curNode = &node_list[i];
+        Node* curNode = node_list[i];
         //ROS_INFO("Curnode id: %d", curNode->id);
         //Convert the node.
         GraphPose graph_pose = curNode->graph_pose;
@@ -372,12 +379,12 @@ void Graph::solve(unsigned int iterations){
 
     //Convert the solved poses back
     for(unsigned int i = 0; i < node_list.size(); i++){
-        GraphPose* currentPose = &node_list[i].graph_pose;
-        g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i].id))->estimate();
+        GraphPose* currentPose = &(node_list[i]->graph_pose);
+        g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i]->id))->estimate();
         // ROS_INFO("Node %d, pose after optimize: x %f, y %f, t %f", node_list[i].id, optimized_pose[0], optimized_pose[1], optimized_pose[2]);
         currentPose->x = optimized_pose[0];
         currentPose->y = optimized_pose[1];
         currentPose->theta = optimized_pose[2];
-        last_node = &node_list[i];
+        // last_node = node_list[i];
     }
 };

@@ -61,7 +61,7 @@ struct Edge {
 class Graph {
 
 	public:
-		vector<Node> node_list;
+		vector<Node*> node_list;
 		vector<Edge> edge_list;
 		Node * last_node;
 		//
