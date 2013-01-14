@@ -174,14 +174,14 @@ void GraphSlam::drawPoses(){
 				for(unsigned int k = 0; k < node_list_size; k++){
 					if(graph->node_list[k].id == edge_parent_id){
 						ROS_INFO("MATCH PARENT");
-						pose = &graph->node_list[i].graph_pose;
+						pose = &(graph->node_list[i].graph_pose);
 					}
 				}
 			}else{
 				for(int k = node_list_size - 1; k >= 0; k--){
 					if(graph->node_list[k].id == edge_parent_id){
 						ROS_INFO("MATCH PARENT");
-						pose = &graph->node_list[i].graph_pose;
+						pose = &(graph->node_list[i].graph_pose);
 					}
 				}
 			}
@@ -199,14 +199,14 @@ void GraphSlam::drawPoses(){
 			for(unsigned int k = 0; k < node_list_size; k++){
 				if(graph->node_list[k].id == edge_child_id){
 					ROS_INFO("MATCH CHILD");
-					pose = &graph->node_list[i].graph_pose;
+					pose = &(graph->node_list[i].graph_pose);
 				}
 			}
 		}else{
 			for(int k = node_list_size - 1; k >= 0; k--){
 				if(graph->node_list[k].id == edge_child_id){
 					ROS_INFO("MATCH CHILD");
-					pose = &graph->node_list[i].graph_pose;
+					pose = &(graph->node_list[i].graph_pose);
 				}
 			}
 		}
