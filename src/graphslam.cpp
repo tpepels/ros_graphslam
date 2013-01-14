@@ -112,6 +112,7 @@ void GraphSlam::spin() {
 			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
 			this->drawPoses();
+			// this->drawScans();
 			// ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;

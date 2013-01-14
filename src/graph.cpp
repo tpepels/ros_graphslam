@@ -22,13 +22,11 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     idCounter++;
 	n.odom_pose = pose;
     // set the true pose to the odometry initially
-    n.graph_pose.x = pose.position.x;
-    n.graph_pose.y = pose.position.y;
-    n.graph_pose.theta = tf::getYaw(pose.orientation);
+    //n.graph_pose.x = pose.position.x;
+    //n.graph_pose.y = pose.position.y;
+    //n.graph_pose.theta = tf::getYaw(pose.orientation);
     // Store the scans
 	n.laser_scan = scan;
-	n.scan_grid = scanToOccGrid(scan, n.graph_pose);
-	node_list.push_back(n);
     //
     double mean[3];
     double covariance[3][3];
@@ -62,14 +60,17 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
         }
         //
 	    edge_list.push_back(e);
+        last_node = &n;
+        //
+        if(sqrt(pow(change_x, 2) + pow(change_y, 2)) > 0) {
+            // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
+        }
     }
+    n.scan_grid = scanToOccGrid(scan, n.graph_pose);
+    node_list.push_back(n);
     // ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n.id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
     ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n.id, n.graph_pose.x, n.graph_pose.y, n.graph_pose.theta);
     last_node = &n;
-    //
-    if(sqrt(pow(dx, 2) + pow(dy, 2)) > 0) {
-        // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
-    }
 }
 ;
 
