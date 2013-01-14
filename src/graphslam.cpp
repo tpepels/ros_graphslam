@@ -125,6 +125,7 @@ void GraphSlam::spin() {
   			p.pose.position.y = last_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
   			pose_publisher.publish(p);
+  			ROS_INFO("? Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
@@ -160,7 +161,7 @@ void GraphSlam::drawPoses(){
 	pose_publish.publish(poses);
 
 	// Publish the edges between all poses
-	ROS_INFO("Starting drawing edges.");
+	// ROS_INFO("Starting drawing edges.");
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
 		
 		unsigned int node_list_size = graph->node_list.size();
@@ -173,19 +174,19 @@ void GraphSlam::drawPoses(){
 			if(i < (edge_list_size / 2.)){
 				for(unsigned int k = 0; k < node_list_size; k++){
 					if(graph->node_list[k].id == edge_parent_id){
-						ROS_INFO("MATCH PARENT");
-						pose = &graph->node_list[i].graph_pose;
+						// ROS_INFO("MATCH PARENT");
+						pose = &(graph->node_list[i].graph_pose);
 					}
 				}
 			}else{
 				for(int k = node_list_size - 1; k >= 0; k--){
 					if(graph->node_list[k].id == edge_parent_id){
-						ROS_INFO("MATCH PARENT");
-						pose = &graph->node_list[i].graph_pose;
+						// ROS_INFO("MATCH PARENT");
+						pose = &(graph->node_list[i].graph_pose);
 					}
 				}
 			}
-			ROS_INFO("PARENT X: %d, Y: %d", pose->x, pose->y);
+			// ROS_INFO("PARENT X: %d, Y: %d", pose->x, pose->y);
 			start.x = pose->x;
 			start.y = pose->y;
 		} else {
@@ -198,20 +199,20 @@ void GraphSlam::drawPoses(){
 		if(i < (edge_list_size / 2.)){
 			for(unsigned int k = 0; k < node_list_size; k++){
 				if(graph->node_list[k].id == edge_child_id){
-					ROS_INFO("MATCH CHILD");
-					pose = &graph->node_list[i].graph_pose;
+					// ROS_INFO("MATCH CHILD");
+					pose = &(graph->node_list[i].graph_pose);
 				}
 			}
 		}else{
 			for(int k = node_list_size - 1; k >= 0; k--){
 				if(graph->node_list[k].id == edge_child_id){
-					ROS_INFO("MATCH CHILD");
-					pose = &graph->node_list[i].graph_pose;
+					// ROS_INFO("MATCH CHILD");
+					pose = &(graph->node_list[i].graph_pose);
 				}
 			}
 		}
 		//
-		ROS_INFO("CHILD X: %d, Y: %d", pose->x, pose->y);
+		// ROS_INFO("CHILD X: %d, Y: %d", pose->x, pose->y);
 		end.x = pose->x;
 		end.y = pose->y;
 		//
@@ -219,7 +220,7 @@ void GraphSlam::drawPoses(){
 		edges_message.points.push_back(end);
 		pose = 0;
 	}
-	ROS_INFO("Finish drawing edges.");
+	// ROS_INFO("Finish drawing edges.");
 	//
 	graph_publish.publish(edges_message);
 }
