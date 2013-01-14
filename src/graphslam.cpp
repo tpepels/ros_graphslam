@@ -174,19 +174,17 @@ void GraphSlam::drawPoses(){
 			if(i < (edge_list_size / 2.)){
 				for(unsigned int k = 0; k < node_list_size; k++){
 					if(graph->node_list[k]->id == edge_parent_id){
-						ROS_INFO("MATCH");
 						pose = &(graph->node_list[i]->graph_pose);
 					}
 				}
 			}else{
 				for(int k = node_list_size - 1; k >= 0; k--){
 					if(graph->node_list[k]->id == edge_parent_id){
-						ROS_INFO("MATCH");
 						pose = &(graph->node_list[i]->graph_pose);
 					}
 				}
 			}
-			ROS_INFO("PARENT X: %d, Y: %d", pose->x, pose->y);
+			//ROS_INFO("PARENT X: %f, Y: %f", pose->x, pose->y);
 			start.x = pose->x;
 			start.y = pose->y;
 		} else {
@@ -199,19 +197,17 @@ void GraphSlam::drawPoses(){
 		if(i < (edge_list_size / 2.)){
 			for(unsigned int k = 0; k < node_list_size; k++){
 				if(graph->node_list[k]->id == edge_child_id){
-					ROS_INFO("MATCH");
 					pose = &(graph->node_list[i]->graph_pose);
 				}
 			}
 		}else{
 			for(int k = node_list_size - 1; k >= 0; k--){
 				if(graph->node_list[k]->id == edge_child_id){
-					ROS_INFO("MATCH");
 					pose = &(graph->node_list[i]->graph_pose);
 				}
 			}
 		}
-		ROS_INFO("CHILD X: %d, Y: %d", pose->x, pose->y);
+		//ROS_INFO("CHILD X: %f, Y: %f", pose->x, pose->y);
 		end.x = pose->x;
 		end.y = pose->y;
 		//
