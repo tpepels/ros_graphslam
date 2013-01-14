@@ -71,7 +71,6 @@ class Graph {
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);
 	private:
-		ScanMatcher matcher;
 		//
 		unsigned int idCounter;
 		double resolution, range_threshold;
