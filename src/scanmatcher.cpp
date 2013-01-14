@@ -188,7 +188,6 @@ bool ScanMatcher::processScan(LDP& ldp, ros::Time time, double change_x, double 
   }else{
     ld_free(ldp);
   }
-  last_time = time;
   //Return
   if(output.valid){
     return true;
@@ -208,7 +207,6 @@ bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::
   }
   ROS_INFO("Converting reference scan");
   convertScantoDLP(reference_scan, previous_ldp);
-  last_time = scan_to_match.header.stamp;
   LDP current_ldp;
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
