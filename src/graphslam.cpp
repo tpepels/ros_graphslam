@@ -125,7 +125,7 @@ void GraphSlam::spin() {
   			p.pose.position.y = last_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
   			pose_publisher.publish(p);
-  			ROS_INFO("? Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
+  			ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate

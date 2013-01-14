@@ -66,7 +66,10 @@ void Graph::addNode(geometry_msgs::Pose pose, sensor_msgs::LaserScan scan){
     // ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n.id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
     ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n.id, n.graph_pose.x, n.graph_pose.y, n.graph_pose.theta);
     last_node = &n;
-    // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
+    //
+    if(sqrt(pow(dx, 2) + pow(dy, 2)) > 0) {
+        // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
+    }
 }
 ;
 
