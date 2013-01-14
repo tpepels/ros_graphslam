@@ -3,9 +3,6 @@
 using namespace std;
 using namespace geometry_msgs;
 
-const float MIN_DIST = 0.25, MIN_ROT = 0.3;
-const float PI = 3.141592654;
-const int SOLVE_STEPS = 10;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
@@ -17,6 +14,13 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	graph_publish = nh.advertise<visualization_msgs::Marker>("/graph_vis", 1);
 	pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/last_pose", 1);
 	//
+	nh.param("resolution", resolution, 0.05);
+    nh.param("solve_iterations", solve_iterations, 10);
+    nh.param("min_dist", min_dist, 0.25);
+    nh.param("min_rot", min_rot, 0.3);
+    nh.param("solve_after_nodes", solve_after_nodes, 10);
+    nh.param("laser_range_t", range_t, 0.9);
+	//
 	odom_updated = false;
 	scan_updated = false;
 	first_scan = true;
@@ -25,7 +29,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	cur_pose.position.y = 0.;
 	cur_pose.orientation = tf::createQuaternionMsgFromYaw(0);
 	//
-	graph = new Graph(0.05, 0.9);
+	graph = new Graph(resolution, range_t);
 	ROS_INFO("GraphSlam Constructor finished");
 }
 ;
@@ -82,7 +86,7 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 		if (rot_dist > PI) {
 			rot_dist = 2 * PI - rot_dist;
 		}
-		if(distance >= MIN_DIST || rot_dist >= MIN_ROT) {
+		if(distance >= min_dist || rot_dist >= min_rot) {
 			ROS_INFO("GraphSlam odom dist ok!");
 			cur_pose = new_pose;
 			odom_updated = true;
@@ -103,8 +107,8 @@ void GraphSlam::spin() {
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			//
-			if(graph->node_list.size() > 2 && graph->node_list.size() % SOLVE_STEPS == 0)
-				graph->solve(10);
+			if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
+				graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
 			// this->drawPoses();
@@ -121,8 +125,6 @@ void GraphSlam::spin() {
   			p.pose.position.y = last_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
   			pose_publisher.publish(p);
-  			ROS_INFO("Published last known pose: x: %f, y %f, t: %f", p.pose.position.x, p.pose.position.y, tf::getYaw(p.pose.orientation));
-  			ROS_INFO("? Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
@@ -156,6 +158,7 @@ void GraphSlam::drawPoses(){
         poses.poses.push_back(new_pose);
 	}
 	pose_publish.publish(poses);
+
 	// Publish the edges between all poses
 	/*
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {

@@ -1,5 +1,6 @@
 #ifndef GRAPH_H
 #define GRAPH_H
+
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Pose.h"
@@ -17,6 +18,8 @@
 #include "g2o/types/slam2d/se2.h"
 #include "g2o/types/slam2d/edge_se2.h"
 #include "g2o/types/slam2d/vertex_se2.h"
+//
+#include "scanmatcher.h"
 
 using namespace std;
 using namespace geometry_msgs;
@@ -49,7 +52,6 @@ struct Node {
 
 // An edge represents the connection between two nodes
 struct Edge {
-	EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	unsigned int parent_id, child_id;
 	//
 	double mean[3];
@@ -68,8 +70,11 @@ class Graph {
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);
 	private:
+		ScanMatcher matcher;
+		//
 		unsigned int idCounter;
 		double resolution, range_threshold;
 		ScanGrid scanToOccGrid(sensor_msgs::LaserScan& scan, GraphPose& pose);
+		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
 };
 #endif

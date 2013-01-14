@@ -1,6 +1,5 @@
 #ifndef SCANMATCHER_H
 #define SCANMATCHER_H
-#include "graph.h"
 #include "ros/ros.h"
 //
 #include <tf/transform_datatypes.h>
@@ -17,7 +16,9 @@
 #include <csm/csm_all.h>
 #include <gsl/gsl_matrix.h> //Hier zit covariance in
 
+#ifndef PI
 #define PI 3.14159265359
+#endif
 
 using namespace std;
 

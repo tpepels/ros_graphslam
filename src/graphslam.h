@@ -13,6 +13,10 @@
 //
 #include "graph.h"
 
+#ifndef PI
+#define PI 3.14159265359
+#endif
+
 using namespace std;
 using namespace geometry_msgs;
 
@@ -28,6 +32,8 @@ private:
 	// The last pose and corresponding scan
 	Pose cur_pose;
 	sensor_msgs::LaserScan cur_scan;
+	double resolution, min_dist, min_rot, range_t;
+	int solve_after_nodes, solve_iterations;
 	//
 	bool odom_updated, scan_updated, first_scan;
 	Graph* graph;
