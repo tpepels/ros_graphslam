@@ -12,6 +12,7 @@
 #include "visualization_msgs/Marker.h"
 //
 #include "graph.h"
+#include "graphnodes.h"
 
 #ifndef PI
 #define PI 3.14159265359

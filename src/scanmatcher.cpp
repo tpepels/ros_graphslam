@@ -75,6 +75,9 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   input.laser_ref = ref_ldp;
   input.laser_sens = ldp;
   // ROS_INFO("SM change_x: %f, change_y: %f, change_t: %f", change_x, change_y, change_theta);
+  tf::Transform change_t;
+  createTfFromXYTheta(change_x, change_y, change_theta, change_t);
+  change_t = change_t * (new_pose_t * ref_pose_t.inverse());
   //Set initial estimate of input
   input.first_guess[0] = change_x;
   input.first_guess[1] = change_y;
@@ -84,10 +87,13 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   sm_icp(&input, &output);
   //
   if(output.valid){
+    tf::Transform corr_ch_l;
+    createTfFromXYTheta(output.x[0], output.x[1], output.x[2], corr_ch_l);
+    new_pose_t = ref_pose_t * corr_ch_l;
     //Set mean pose
-    mean[0] = output.x[0];
-    mean[1] = output.x[1];
-    mean[2] = output.x[2];
+    mean[0] = new_pose_t.getOrigin().getX();
+    mean[1] = new_pose_t.getOrigin().getY();
+    mean[2] = tf::getYaw(new_pose_t.getRotation());
     ROS_INFO("SM mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
     //
     //Set covariance
@@ -109,13 +115,26 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   } else {
     return false;
   }
-};
+}
+;
 
-bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]){
+void ScanMatcher::createTfFromXYTheta(double x, double y, double theta, tf::Transform& t) {
+  t.setOrigin(tf::Vector3(x, y, 0.0));
+  tf::Quaternion q;
+  q.setRPY(0.0, 0.0, theta);
+  t.setRotation(q);
+}
+;
+
+bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, GraphPose& new_pose, sensor_msgs::LaserScan& reference_scan, GraphPose& ref_pose,  double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]) {
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
+  // Transforms for the new pose and reference pose
+  createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
+  // All scans should be between this interval
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
   bool result = processScan(current_ldp, ref_ldp, change_x, change_y, change_theta, mean, covariance);

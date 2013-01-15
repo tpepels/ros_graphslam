@@ -6,8 +6,8 @@ using namespace geometry_msgs;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
-	laserScan_Sub = nh.subscribe("base_scan", 10, &GraphSlam::laserScan_callback, this);
-	odometry_Sub = nh.subscribe("odom", 10, &GraphSlam::odom_callback, this);
+	laserScan_Sub = nh.subscribe("base_scan", 1, &GraphSlam::laserScan_callback, this);
+	odometry_Sub = nh.subscribe("odom", 1, &GraphSlam::odom_callback, this);
 	//
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
 	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/pose", 1);
@@ -66,32 +66,34 @@ Pose GraphSlam::getFramePose(string frame, string fixed_frame, ros::Time stamp) 
 }
 
 void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
-	scan_updated = true;
-	cur_scan = msg;
-	// This means the robot is at the origin.
-	if(!odom_updated && first_scan) {
-		ROS_INFO("GraphSlam first scan");
-		odom_updated = true;
+	if(odom_updated || first_scan) {
+		ROS_INFO("Updating scan.");
+		scan_updated = true;
+		cur_scan = msg;
+		// This means the robot is at the origin.
+		if(!odom_updated && first_scan) {
+			ROS_INFO("GraphSlam first scan");
+			odom_updated = true;
+		}
+		first_scan = false;
 	}
-	first_scan = false;
 }
 ;
 
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
-	if(scan_updated) {
-		Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
-		float new_x = new_pose.position.x, new_y = new_pose.position.y;
-		float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
-		float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(msg.pose.pose.orientation));
-		if (rot_dist > PI) {
-			rot_dist = 2 * PI - rot_dist;
-		}
-		if(distance >= min_dist || rot_dist >= min_rot) {
-			ROS_INFO("GraphSlam odom dist ok!");
-			cur_pose = new_pose;
-			odom_updated = true;
-		}
+	// Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
+	Pose new_pose = msg.pose.pose;
+	float new_x = new_pose.position.x, new_y = new_pose.position.y;
+	float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
+	float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(new_pose.orientation));
+	if (rot_dist > PI) {
+		rot_dist = 2 * PI - rot_dist;
 	}
+	if(distance >= min_dist || rot_dist >= min_rot) {
+		ROS_INFO("GraphSlam odom dist ok!");
+		cur_pose = new_pose;
+		odom_updated = true;
+	}	
 }
 ;
 

@@ -61,9 +61,8 @@ void Graph::addNode(geometry_msgs::Pose pose, const sensor_msgs::LaserScan::Cons
         // ROS_INFO("Last node id: %d, current id %d.", last_node->id, n->id);
         GraphPose last_pose = last_node->graph_pose;
         ScanMatcher matcher;
-	    // Match the new node's scans to previous scans and add edges accordingly
-        //if(matcher.scanMatch(n->laser_scan, last_node->laser_scan, change_x, change_y, change_theta, mean, covariance)) {
-        if(matcher.scanMatch(n->laser_scan, last_node->laser_scan, change_x, change_y, change_theta, mean, covariance)) {
+	    // Match the new node's scans to previous scans and add edges according
+        if(matcher.scanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_pose, change_x, change_y, change_theta, mean, covariance)) {
             // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             memcpy(e->mean, mean, sizeof(double) * 3);
             memcpy(e->covariance, covariance, sizeof(double) * 9);
@@ -72,6 +71,15 @@ void Graph::addNode(geometry_msgs::Pose pose, const sensor_msgs::LaserScan::Cons
             n->graph_pose.x = last_pose.x + mean[0];
             n->graph_pose.y = last_pose.y + mean[1];
             n->graph_pose.theta = last_pose.theta + mean[2];
+            n->graph_pose.x = mean[0];
+            n->graph_pose.y = mean[1];
+            n->graph_pose.theta = mean[2];
+            //
+            if (n->graph_pose.theta >= PI) {
+                n->graph_pose.theta -= 2 * PI;
+            } else if (n->graph_pose.theta < -PI) {
+                n->graph_pose.theta += 2 * PI;
+            }
         } else {
             ROS_ERROR("Error scan matching!");
         }
@@ -91,7 +99,6 @@ void Graph::addNode(geometry_msgs::Pose pose, const sensor_msgs::LaserScan::Cons
     //
     ROS_INFO("Added node: %d, odometry x: %f, y: %f t: %f.", n->id, pose.position.x, pose.position.y, tf::getYaw(pose.orientation));
     ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n->id, n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
-
 }
 ;
 
@@ -124,7 +131,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         double cov[3][3];
         //
         ScanMatcher matcher;
-        if(matcher.scanMatch(last_scan, n->laser_scan, dx, dy, dt, mean, cov)) {
+        if(matcher.scanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, dx, dy, dt, mean, cov)) {
             // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
             if (abs(dx - mean[0]) <= min_dist_delta && abs(dy - mean[1]) <= min_dist_delta && abs(dt - mean[2])) {
                 // Add the link between the current and the previous node
