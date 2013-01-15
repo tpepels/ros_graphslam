@@ -3,19 +3,23 @@
 using namespace std;
 using namespace geometry_msgs;
 
-const float MIN_DIST = 0.25, MIN_ROT = 0.3;
-const float PI = 3.141592654;
-const int SOLVE_STEPS = 10;
 //
 GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	// Subscribe to odom an laser scan messages
-	laserScan_Sub = nh.subscribe("base_scan", 10, &GraphSlam::laserScan_callback, this);
-	odometry_Sub = nh.subscribe("odom", 10, &GraphSlam::odom_callback, this);
+	laserScan_Sub = nh.subscribe("base_scan", 1, &GraphSlam::laserScan_callback, this);
+	odometry_Sub = nh.subscribe("odom", 1, &GraphSlam::odom_callback, this);
 	//
 	map_publish = nh.advertise<nav_msgs::OccupancyGrid> ("/map", 1, false);
 	pose_publish = nh.advertise<geometry_msgs::PoseArray>("/pose", 1);
 	graph_publish = nh.advertise<visualization_msgs::Marker>("/graph_vis", 1);
 	pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/last_pose", 1);
+	//
+	nh.param("resolution", resolution, 0.05);
+    nh.param("solve_iterations", solve_iterations, 10);
+    nh.param("min_dist", min_dist, 0.20);
+    nh.param("min_rot", min_rot, 0.3);
+    nh.param("solve_after_nodes", solve_after_nodes, 10);
+    nh.param("laser_range_t", range_t, 0.9);
 	//
 	odom_updated = false;
 	scan_updated = false;
@@ -25,7 +29,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	cur_pose.position.y = 0.;
 	cur_pose.orientation = tf::createQuaternionMsgFromYaw(0);
 	//
-	graph = new Graph(0.05, 0.9);
+	graph = new Graph(resolution, range_t);
 	ROS_INFO("GraphSlam Constructor finished");
 }
 ;
@@ -61,33 +65,35 @@ Pose GraphSlam::getFramePose(string frame, string fixed_frame, ros::Time stamp) 
 	return result;
 }
 
-void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan& msg){
-	scan_updated = true;
-	cur_scan = msg;
-	// This means the robot is at the origin.
-	if(!odom_updated && first_scan) {
-		ROS_INFO("GraphSlam first scan");
-		odom_updated = true;
+void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
+	if(odom_updated || first_scan) {
+		ROS_INFO("Updating scan.");
+		scan_updated = true;
+		cur_scan = msg;
+		// This means the robot is at the origin.
+		if(!odom_updated && first_scan) {
+			ROS_INFO("GraphSlam first scan");
+			odom_updated = true;
+		}
+		first_scan = false;
 	}
-	first_scan = false;
 }
 ;
 
 void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
-	if(scan_updated) {
-		Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
-		float new_x = new_pose.position.x, new_y = new_pose.position.y;
-		float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
-		float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(msg.pose.pose.orientation));
-		if (rot_dist > PI) {
-			rot_dist = 2 * PI - rot_dist;
-		}
-		if(distance >= MIN_DIST || rot_dist >= MIN_ROT) {
-			ROS_INFO("GraphSlam odom dist ok!");
-			cur_pose = new_pose;
-			odom_updated = true;
-		}
+	// Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
+	Pose new_pose = msg.pose.pose;
+	float new_x = new_pose.position.x, new_y = new_pose.position.y;
+	float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
+	float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(new_pose.orientation));
+	if (rot_dist > PI) {
+		rot_dist = 2 * PI - rot_dist;
 	}
+	if(distance >= min_dist || rot_dist >= min_rot) {
+		ROS_INFO("GraphSlam odom dist ok!");
+		cur_pose = new_pose;
+		odom_updated = true;
+	}	
 }
 ;
 
@@ -103,11 +109,12 @@ void GraphSlam::spin() {
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			//
-			if(graph->node_list.size() > 2 && graph->node_list.size() % SOLVE_STEPS == 0)
-				graph->solve(10);
+			// if(graph->node_list.size() > 2 && graph->node_list.size() % solve_after_nodes == 0)
+			//	graph->solve(solve_iterations);
 			// ROS_INFO("GraphSlam Map generated");
 			map_publish.publish(cur_map);
-			// this->drawPoses();
+			this->drawPoses();
+			// this->drawScans();
 			// ROS_INFO("GraphSlam Map published");
 			// Call the graph-slam update here
 			odom_updated = false;
@@ -121,8 +128,7 @@ void GraphSlam::spin() {
   			p.pose.position.y = last_pose.y;
   			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
   			pose_publisher.publish(p);
-  			ROS_INFO("Published last known pose: x: %f, y %f, t: %f", p.pose.position.x, p.pose.position.y, tf::getYaw(p.pose.orientation));
-  			ROS_INFO("? Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
+  			// ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
@@ -150,20 +156,37 @@ void GraphSlam::drawPoses(){
 	// Publish all poses in the graph!
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
 		geometry_msgs::Pose new_pose;
-		new_pose.position.x = graph->node_list[i].graph_pose.x;
-		new_pose.position.y = graph->node_list[i].graph_pose.y;
-		new_pose.orientation = tf::createQuaternionMsgFromYaw(graph->node_list[i].graph_pose.theta);
+		new_pose.position.x = graph->node_list[i]->graph_pose.x;
+		new_pose.position.y = graph->node_list[i]->graph_pose.y;
+		new_pose.orientation = tf::createQuaternionMsgFromYaw(graph->node_list[i]->graph_pose.theta);
         poses.poses.push_back(new_pose);
 	}
 	pose_publish.publish(poses);
+
 	// Publish the edges between all poses
-	/*
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
+		
+		unsigned int node_list_size = graph->node_list.size();
+		unsigned int edge_list_size = graph->edge_list.size();
 		geometry_msgs::Point start;
 		//
 		GraphPose * pose;
 		if(i > 0) { // First node has no parent
-			pose = &graph->edge_list[i].parent->graph_pose;
+			unsigned int edge_parent_id = graph->edge_list[i]->parent_id;
+			if(i < (edge_list_size / 2.)){
+				for(unsigned int k = 0; k < node_list_size; k++){
+					if(graph->node_list[k]->id == edge_parent_id){
+						pose = &(graph->node_list[i]->graph_pose);
+					}
+				}
+			}else{
+				for(int k = node_list_size - 1; k >= 0; k--){
+					if(graph->node_list[k]->id == edge_parent_id){
+						pose = &(graph->node_list[i]->graph_pose);
+					}
+				}
+			}
+			//ROS_INFO("PARENT X: %f, Y: %f", pose->x, pose->y);
 			start.x = pose->x;
 			start.y = pose->y;
 		} else {
@@ -172,7 +195,21 @@ void GraphSlam::drawPoses(){
 		}
 		//
 		geometry_msgs::Point end;
-		pose = &graph->edge_list[i].child->graph_pose;
+		unsigned int edge_child_id = graph->edge_list[i]->child_id;
+		if(i < (edge_list_size / 2.)){
+			for(unsigned int k = 0; k < node_list_size; k++){
+				if(graph->node_list[k]->id == edge_child_id){
+					pose = &(graph->node_list[i]->graph_pose);
+				}
+			}
+		}else{
+			for(int k = node_list_size - 1; k >= 0; k--){
+				if(graph->node_list[k]->id == edge_child_id){
+					pose = &(graph->node_list[i]->graph_pose);
+				}
+			}
+		}
+		//ROS_INFO("CHILD X: %f, Y: %f", pose->x, pose->y);
 		end.x = pose->x;
 		end.y = pose->y;
 		//
@@ -182,7 +219,6 @@ void GraphSlam::drawPoses(){
 	}
 	//
 	graph_publish.publish(edges_message);
-	*/
 }
 ;
 
@@ -199,23 +235,23 @@ void GraphSlam::drawScans(){
 	//
 	
 	for(unsigned int i = 0; i < graph->node_list.size(); i++) {
-		float theta = graph->node_list[i].graph_pose.theta;
+		float theta = graph->node_list[i]->graph_pose.theta;
 		//
-		float minimal_angle = theta + graph->node_list[i].laser_scan.angle_min;
+		float minimal_angle = theta + graph->node_list[i]->laser_scan.angle_min;
 		float current_angle = minimal_angle;
-		float maximal_angle = theta + graph->node_list[i].laser_scan.angle_max;
+		float maximal_angle = theta + graph->node_list[i]->laser_scan.angle_max;
 		//
-		float angle_increment = graph->node_list[i].laser_scan.angle_increment;
-		float max_range = graph->node_list[i].laser_scan.range_max;
+		float angle_increment = graph->node_list[i]->laser_scan.angle_increment;
+		float max_range = graph->node_list[i]->laser_scan.range_max;
 		//
 		for(unsigned int j = 0; current_angle <= maximal_angle - angle_increment && j < 180; j = j + 1, current_angle = current_angle + angle_increment) {
-			float range = graph->node_list[i].laser_scan.ranges[j];
+			float range = graph->node_list[i]->laser_scan.ranges[j];
 			if(range == max_range){
 				continue;
 			}
 			//
-			float x = graph->node_list[i].graph_pose.x + cos(current_angle) * range;
-			float y = graph->node_list[i].graph_pose.y + sin(current_angle) * range;
+			float x = graph->node_list[i]->graph_pose.x + cos(current_angle) * range;
+			float y = graph->node_list[i]->graph_pose.y + sin(current_angle) * range;
 			//
 			geometry_msgs::Point point;
 			point.x = x;

@@ -1,7 +1,7 @@
 #ifndef SCANMATCHER_H
 #define SCANMATCHER_H
-#include "graph.h"
 #include "ros/ros.h"
+#include "graphnodes.h"
 //
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
@@ -17,36 +17,23 @@
 #include <csm/csm_all.h>
 #include <gsl/gsl_matrix.h> //Hier zit covariance in
 
+#ifndef PI
 #define PI 3.14159265359
+#endif
 
 using namespace std;
 
 class ScanMatcher {
  public:
   ScanMatcher();
-  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, sensor_msgs::LaserScan& reference_scan, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
+  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, GraphPose& new_pose, sensor_msgs::LaserScan& reference_scan, GraphPose& ref_pose,  double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
  private:
   sm_params input;
   sm_result output;
+  tf::Transform new_pose_t, ref_pose_t;
   //
-  LDP previous_ldp;
-  //Pose of the base frame in fixed frame;
-  tf::Transform fixed_to_base;
-  //Pose of the last keyframe scan in fixed frame
-  tf::Transform fixed_to_base_keyframe;
-  //Used to convert poses between base of the robot and the laser scanner.
-  tf::Transform laser_to_base;
-  tf::Transform base_to_laser;
-  //
-  ros::Time last_time;
-  bool initialized;
-  tf::TransformListener tf_listener;
-  string base_frame, fixed_frame;
-  double keyframe_distance_linear, keyframe_distance_angular;
-
-  bool setBasetoLaserTransform(string& frame_id);
+  void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
   void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
-  bool newKF(const tf::Transform& d);
-  bool processScan(LDP& ldp, ros::Time time, double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
+  bool processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]);
 };
 #endif
