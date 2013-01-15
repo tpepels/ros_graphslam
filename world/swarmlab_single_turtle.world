@@ -33,7 +33,7 @@ map
 define hokuyo ranger
 (
   sensor(
-    range [0 4.0]
+    range [0 5.0]
     fov 270.25
     samples 480
   )
