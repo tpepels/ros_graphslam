@@ -95,12 +95,15 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
     //
     //Set covariance
     unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
-    for(unsigned int i = 0; i < rows; i++) {
-      for(unsigned int j = 0; j < cols; j++) {
-        covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
+    covariance[0][0] = gsl_matrix_get(output.cov_x_m, 0, 0);
+    covariance[1][1] = gsl_matrix_get(output.cov_x_m, 1, 1);
+    covariance[2][2] = gsl_matrix_get(output.cov_x_m, 2, 2);
+    //for(unsigned int i = 0; i < rows; i++) {
+      // for(unsigned int j = 0; j < cols; j++) {
+        // covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
         //ROS_INFO("Covariance[%d]: %f", i+j, covariance[i][j]);
-      }
-    }
+      // }
+    // }
   } else {
     ROS_WARN("Solution was not found.");
   }
