@@ -98,8 +98,8 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
     //
     //Set covariance
     unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
-    for(unsigned int i = 0; i < rows; i++){
-      for(unsigned int j = 0; j < cols; j++){
+    for(unsigned int i = 0; i < rows; i++) {
+      for(unsigned int j = 0; j < cols; j++) {
         covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
       }
     }

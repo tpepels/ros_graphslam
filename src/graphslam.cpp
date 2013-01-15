@@ -16,7 +16,7 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	//
 	nh.param("resolution", resolution, 0.05);
     nh.param("solve_iterations", solve_iterations, 10);
-    nh.param("min_dist", min_dist, 0.10);
+    nh.param("min_dist", min_dist, 0.20);
     nh.param("min_rot", min_rot, 0.3);
     nh.param("solve_after_nodes", solve_after_nodes, 10);
     nh.param("laser_range_t", range_t, 0.9);
