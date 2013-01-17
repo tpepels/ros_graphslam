@@ -22,18 +22,20 @@
 #endif
 
 using namespace std;
+using namespace sensor_msgs;
 
 class ScanMatcher {
  public:
   ScanMatcher();
-  bool scanMatch(sensor_msgs::LaserScan& scan_to_match, GraphPose& new_pose, sensor_msgs::LaserScan& reference_scan, GraphPose& ref_pose,  double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]);
+  bool scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3]);
+  bool graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3]);
  private:
   sm_params input;
   sm_result output;
   tf::Transform new_pose_t, ref_pose_t;
   //
   void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
-  void convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp);
+  void convertScantoDLP(LaserScan& scan, LDP& ldp);
   bool processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]);
 };
 #endif

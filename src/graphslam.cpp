@@ -15,19 +15,29 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/last_pose", 1);
 	//
 	nh.param("resolution", resolution, 0.05);
-    nh.param("solve_iterations", solve_iterations, 10);
-    nh.param("min_dist", min_dist, 0.1);
-    nh.param("min_rot", min_rot, 0.3);
+    nh.param("solve_iterations", solve_iterations, 20);
+    // After this distance, a new node will be added to the graph
+    nh.param("min_node_dist", min_node_dist, 0.25);
+    nh.param("min_node_rot", min_node_rot, 0.45);
+    // This is the distance used for the scanmatching correction
+    nh.param("min_sm_dist", min_sm_dist, 0.05);
+    nh.param("min_sm_rot", min_sm_rot, 0.3);
+    //
     nh.param("solve_after_nodes", solve_after_nodes, 10);
     nh.param("laser_range_t", range_t, 0.9);
 	//
 	odom_updated = false;
 	scan_updated = false;
 	first_scan = true;
-	// Set the initial pose to 0,0,0
-	cur_pose.position.x = 0.;
-	cur_pose.position.y = 0.;
-	cur_pose.orientation = tf::createQuaternionMsgFromYaw(0);
+	// Set the initial pose for the graph and scanmatcher to 0,0,0
+	cur_sm_pose.x = 0.;
+	cur_sm_pose.y = 0.;
+	cur_sm_pose.theta = 0;
+	//
+	prev_graph_odom.position.x = 0;
+	prev_graph_odom.position.y = 0;
+	prev_graph_odom.orientation = tf::createQuaternionMsgFromYaw(0);
+	prev_sm_odom = prev_graph_odom;
 	//
 	graph = new Graph(resolution, range_t);
 	ROS_INFO("GraphSlam Constructor finished");
@@ -39,40 +49,36 @@ GraphSlam::~GraphSlam() {
 }
 ;
 
-Pose GraphSlam::getFramePose(string frame, string fixed_frame, ros::Time stamp) {
-	// Wait for the transform to be available
-	tf_listener.waitForTransform(frame, fixed_frame, stamp, ros::Duration(1.0));
-	tf::Pose pose;
-	pose.setOrigin(tf::Vector3(0, 0, 0));
-	pose.setRotation(tf::createQuaternionFromYaw(0));
-	// Transform message
-	geometry_msgs::PoseStamped pose_stamped;
-	pose_stamped.header.frame_id = frame;
-	pose_stamped.header.stamp = stamp;
-	tf::poseTFToMsg(pose, pose_stamped.pose);
-	// Transform
-	geometry_msgs::PoseStamped result_msg;
-	tf_listener.transformPose(fixed_frame, pose_stamped, result_msg);
-	// Get the pose
-	tf::Stamped<tf::Pose> tf_pose;
-	tf::poseStampedMsgToTF(result_msg, tf_pose);
-
-	Pose result;
-	result.position.x = tf_pose.getOrigin().getX();
-	result.position.y = tf_pose.getOrigin().getY();
-	result.orientation = tf::createQuaternionMsgFromYaw(tf::getYaw(tf_pose.getRotation()));
-
-	return result;
-}
-
-void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
+void GraphSlam::laserScan_callback(const LaserScan::ConstPtr& msg){	
+	// Store the first reference scan for later use
+	if(first_scan)
+		cur_sm_scan = msg;
+	// Check if we will perform scanmatching
+	if(!first_scan && sm_odom_updated) {
+		//ROS_INFO("Scan matching!");
+		double mean[3];
+		LaserScan scan = *msg;
+		LaserScan ref_scan = *cur_sm_scan;
+		if(matcher.scanMatch(scan, cur_sm_pose, ref_scan, prev_sm_pose, mean)) {
+			cur_sm_pose.x = mean[0];
+			cur_sm_pose.y = mean[1];
+			cur_sm_pose.theta = mean[2];
+		} else {
+			// In this case, cur_sm_pose will have the value of the odometry
+			ROS_WARN("Scanmatching in GraphSlam failed.");
+		}
+		// 
+		cur_sm_scan = msg;
+		sm_odom_updated = false;
+		sm_pose_updated = true;
+	}
+	// Check if a node will get added to the graph
 	if(odom_updated || first_scan) {
-		ROS_INFO("Updating scan.");
+		//ROS_INFO("Odom and scan updated!");
 		scan_updated = true;
 		cur_scan = msg;
 		// This means the robot is at the origin.
 		if(!odom_updated && first_scan) {
-			ROS_INFO("GraphSlam first scan");
 			odom_updated = true;
 		}
 		first_scan = false;
@@ -80,20 +86,47 @@ void GraphSlam::laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
 }
 ;
 
-void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
-	// Pose new_pose = getFramePose("base_link", "odom", msg.header.stamp);
-	Pose new_pose = msg.pose.pose;
-	float new_x = new_pose.position.x, new_y = new_pose.position.y;
-	float distance = sqrt(pow(cur_pose.position.x - new_x, 2) + pow(cur_pose.position.y - new_y, 2));
-	float rot_dist = abs(tf::getYaw(cur_pose.orientation) - tf::getYaw(new_pose.orientation));
+float GraphSlam::distance(float x1, float x2, float y1, float y2) {
+	return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));
+}
+;
+
+float GraphSlam::rot_distance(float theta1, float theta2) {
+	float rot_dist = abs(theta1 - theta2);
 	if (rot_dist > PI) {
 		rot_dist = 2 * PI - rot_dist;
 	}
-	if(distance >= min_dist || rot_dist >= min_rot) {
-		ROS_INFO("GraphSlam odom dist ok!");
-		cur_pose = new_pose;
+	return rot_dist;
+}
+;
+
+void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
+	float new_x = msg.pose.pose.position.x, new_y = msg.pose.pose.position.y;
+	float new_theta = tf::getYaw(msg.pose.pose.orientation);
+	// Check if we're going to add a node to the graph
+	float g_dist = distance(prev_graph_odom.position.x, new_x, prev_graph_odom.position.y, new_y);
+	float g_rot_dist = rot_distance(tf::getYaw(prev_graph_odom.orientation), new_theta);
+	//
+	if(g_dist >= min_node_dist || g_rot_dist >= min_node_rot) {
 		odom_updated = true;
-	}	
+		prev_graph_odom = msg.pose.pose;
+	}
+	// check if we will do some scanmatching
+	float sm_dist = distance(prev_sm_odom.position.x, new_x, prev_sm_odom.position.y, new_y);
+	float sm_rot_dist = rot_distance(tf::getYaw(prev_sm_odom.orientation), new_theta);
+	// If the new distance is large enough update the current pose based on the scanmatching result
+	if(odom_updated || sm_dist >= min_sm_dist || sm_rot_dist >= min_sm_rot) {
+		// ROS_INFO("SM Distance! o_u %d, sm_dist %f, sm_rot %f", odom_updated, sm_dist, sm_rot_dist);
+		// Store the previous pose as an estimation
+		prev_sm_pose = cur_sm_pose;
+		//
+		cur_sm_pose.x = new_x;
+		cur_sm_pose.y = new_y;
+		cur_sm_pose.theta = new_theta;
+		//
+		sm_odom_updated = true;
+		prev_sm_odom = msg.pose.pose;
+	}
 }
 ;
 
@@ -104,8 +137,7 @@ void GraphSlam::spin() {
 		// Check if messages have been received
 		if(odom_updated && scan_updated) {
 			// ROS_INFO("GraphSlam odom and scan updated!");
-			graph->addNode(cur_pose, cur_scan);
-			//
+			graph->addNode(cur_sm_pose, cur_scan);
 			nav_msgs::OccupancyGrid cur_map;
 			graph->generateMap(cur_map);
 			//
@@ -115,20 +147,20 @@ void GraphSlam::spin() {
 			map_publish.publish(cur_map);
 			this->drawPoses();
 			// this->drawScans();
-			// ROS_INFO("GraphSlam Map published");
-			// Call the graph-slam update here
 			odom_updated = false;
 			scan_updated = false;
-			//
-			GraphPose last_pose = graph->last_node->graph_pose;
+  			// ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
+		}
+		if(sm_pose_updated) {
+			// Publish the lase scanmatching pose
 			geometry_msgs::PoseStamped p;
 			p.header.stamp = ros::Time().now();
-  			p.header.frame_id = "/odom";
-  			p.pose.position.x = last_pose.x;
-  			p.pose.position.y = last_pose.y;
-  			p.pose.orientation = tf::createQuaternionMsgFromYaw(last_pose.theta);
-  			pose_publisher.publish(p);
-  			// ROS_INFO("Published last known pose: x: %f, y %f, t: %f", last_pose.x, last_pose.y, last_pose.theta);
+			p.header.frame_id = "/odom";
+			p.pose.position.x = cur_sm_pose.x;
+			p.pose.position.y = cur_sm_pose.y;
+			p.pose.orientation = tf::createQuaternionMsgFromYaw(cur_sm_pose.theta);
+			pose_publisher.publish(p);
+			sm_pose_updated = false;
 		}
 		//
 		rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate

@@ -9,14 +9,8 @@ ScanMatcher::ScanMatcher() {
   input.laser[0] = 0.0;
   input.laser[1] = 0.0;
   input.laser[2] = 0.0;
-  //
-  input.max_angular_correction_deg = 20.0;
-  input.max_linear_correction = 0.1;
-  input.max_iterations = 10;
-  input.epsilon_xy = 0.000001;
-  input.epsilon_theta = 0.000001;
-  input.max_correspondence_dist = 0.3;
-  input.sigma = 0.010;
+  // General input parameters
+  input.sigma = 0.01;
   input.use_corr_tricks = 1;
   input.restart = 0;
   input.restart_threshold_mean_error = 0.01;
@@ -79,7 +73,7 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   input.first_guess[0] = change_x;
   input.first_guess[1] = change_y;
   input.first_guess[2] = change_theta; 
-  ROS_INFO("SM first_guess_x: %f, first_guess_y: %f, change_t: %f", input.first_guess[0], input.first_guess[1], input.first_guess[2]);
+  // ROS_INFO("SM first_guess_x: %f, first_guess_y: %f, change_t: %f", input.first_guess[0], input.first_guess[1], input.first_guess[2]);
   //Finally, perform scan matching.
   sm_icp(&input, &output);
   //
@@ -91,19 +85,18 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
     mean[0] = new_pose_t.getOrigin().getX();
     mean[1] = new_pose_t.getOrigin().getY();
     mean[2] = tf::getYaw(new_pose_t.getRotation());
-    ROS_INFO("SM mean_x: %2.4f, mean_y: %2.4f, mean_t: %2.4f, error: %2.4f", mean[0], mean[1], mean[2], output.error);
+    // ROS_INFO("SM mean_x: %2.4f, mean_y: %2.4f, mean_t: %2.4f, error: %2.4f", mean[0], mean[1], mean[2], output.error);
     //
-    //Set covariance
-    unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
-    covariance[0][0] = gsl_matrix_get(output.cov_x_m, 0, 0);
-    covariance[1][1] = gsl_matrix_get(output.cov_x_m, 1, 1);
-    covariance[2][2] = gsl_matrix_get(output.cov_x_m, 2, 2);
-    //for(unsigned int i = 0; i < rows; i++) {
-      // for(unsigned int j = 0; j < cols; j++) {
-        // covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
-        //ROS_INFO("Covariance[%d]: %f", i+j, covariance[i][j]);
-      // }
-    // }
+    if(input.do_compute_covariance == 1) {
+      //Set covariance
+      unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
+      for(unsigned int i = 0; i < cols; i++) {
+        for(unsigned int j = 0; j < rows; j++) {
+          covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
+          // ROS_INFO("Covariance[%d]: %f", i+j, covariance[i][j]);
+        }
+      }
+    }
   } else {
     ROS_WARN("Solution was not found.");
   }
@@ -127,7 +120,7 @@ void ScanMatcher::createTfFromXYTheta(double x, double y, double theta, tf::Tran
 }
 ;
 
-bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, GraphPose& new_pose, sensor_msgs::LaserScan& reference_scan, GraphPose& ref_pose,  double change_x, double change_y, double change_theta, double mean[3], double covariance[][3]) {
+bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3]) {
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
@@ -138,6 +131,58 @@ bool ScanMatcher::scanMatch(sensor_msgs::LaserScan& scan_to_match, GraphPose& ne
   // All scans should be between this interval
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
-  bool result = processScan(current_ldp, ref_ldp, change_x, change_y, change_theta, mean, covariance);
+  // Allow more distance grom the solution as the scan-matching distance is higher
+  input.max_iterations = 20;
+  input.epsilon_xy = 0.0001;
+  input.epsilon_theta = 0.0001;
+  input.do_compute_covariance = 1;
+  input.max_angular_correction_deg = 90.0;
+  input.max_linear_correction = 0.5;
+  input.max_correspondence_dist = 0.5;
+  //Calculate change in position
+  double dx = new_pose.x - ref_pose.x;
+  double dy = new_pose.y - ref_pose.y;
+  double dt = new_pose.theta - ref_pose.theta;
+  //
+  if (dt >= PI) {
+      dt -= 2 * PI;
+  } else if (dt < -PI) {
+      dt += 2 * PI;
+  }
+  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance);
+  return result;
+};
+
+bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3]) {
+  LDP ref_ldp;
+  convertScantoDLP(reference_scan, ref_ldp);
+  LDP current_ldp;
+  convertScantoDLP(scan_to_match, current_ldp);
+  // Transforms for the new pose and reference pose
+  createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
+  // All scans should be between this interval
+  input.min_reading = scan_to_match.range_min;
+  input.max_reading = scan_to_match.range_max;
+  input.max_iterations = 10;
+  input.epsilon_xy = 0.000001;
+  input.epsilon_theta = 0.000001;
+  input.do_compute_covariance = 0;
+  input.max_angular_correction_deg = 30.0;
+  input.max_linear_correction = 0.2;
+  input.max_correspondence_dist = 0.3;
+  //
+  //Calculate change in position
+  double dx = new_pose.x - ref_pose.x;
+  double dy = new_pose.y - ref_pose.y;
+  double dt = new_pose.theta - ref_pose.theta;
+  //
+  if (dt >= PI) {
+      dt -= 2 * PI;
+  } else if (dt < -PI) {
+      dt += 2 * PI;
+  }
+  double covariance[3][3];
+  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance);
   return result;
 };

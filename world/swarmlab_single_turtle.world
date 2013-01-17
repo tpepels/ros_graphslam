@@ -1,5 +1,5 @@
 resolution 0.01 # set the resolution of the underlying raytrace model in meters
-interval_sim 60 # simulation timestep in milliseconds
+interval_sim 30 # simulation timestep in milliseconds
 #interval_real 100
 
 window
@@ -38,7 +38,7 @@ define hokuyo ranger
     samples 480
   )
   color "black"
-  size [ 0.02 0.02 0.05 ]
+  size [ 0.020 0.020 0.050 ]
 )
 
 
@@ -55,4 +55,4 @@ define turtlebot position
   bitmap "robot.png"
 )
 
-turtlebot( pose [-1.879 -0.039 0.000 31.952] color "red")
+turtlebot( pose [1.494 -0.732 0.000 89.248] color "red")

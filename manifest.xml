@@ -8,13 +8,11 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/ros_slam_group5</url>
-  <depend package="turtlebot_gazebo"/>
   <depend package="roscpp"/>
   <depend package="geometry_msgs"/>
   <depend package="sensor_msgs"/>
   <depend package="tf"/>
-  <depend package="move_base_msgs" />
-  <depend package="actionlib" />
+  <rosdep name="suitesparse"/>
 </package>
 
 

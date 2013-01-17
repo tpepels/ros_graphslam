@@ -25,6 +25,7 @@
 using namespace std;
 using namespace geometry_msgs;
 using namespace Eigen;
+using namespace sensor_msgs;
 
 class Graph {
 
@@ -35,7 +36,7 @@ class Graph {
 		//
 		Graph(double resolution, double range_threshold);
 		~Graph();
-		void addNode(Pose pose, const sensor_msgs::LaserScan::ConstPtr& scan);
+		void addNode(GraphPose pose, const LaserScan::ConstPtr& scan);
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);
 	private:
@@ -43,7 +44,7 @@ class Graph {
 		unsigned int idCounter;
 		double resolution, range_threshold;
 		ScanMatcher matcher;
-		ScanGrid scanToOccGrid(const sensor_msgs::LaserScan::ConstPtr& scan, GraphPose& pose);
+		ScanGrid scanToOccGrid(const LaserScan::ConstPtr& scan, GraphPose& pose);
 		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
 };
 #endif

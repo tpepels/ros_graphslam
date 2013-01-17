@@ -12,6 +12,7 @@
 #include "visualization_msgs/Marker.h"
 //
 #include "graph.h"
+#include "scanmatcher.h"
 #include "graphnodes.h"
 
 #ifndef PI
@@ -20,6 +21,7 @@
 
 using namespace std;
 using namespace geometry_msgs;
+using namespace sensor_msgs;
 
 class GraphSlam {
 public:
@@ -31,16 +33,23 @@ private:
 	ros::Publisher map_publish, pose_publish, graph_publish, pose_publisher;
 	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
-	Pose cur_pose;
-	sensor_msgs::LaserScan::ConstPtr cur_scan;
-	double resolution, min_dist, min_rot, range_t;
+	Pose prev_graph_odom;
+	LaserScan::ConstPtr cur_scan, cur_sm_scan;
+	double resolution, min_node_dist, min_node_rot, range_t, min_sm_dist, min_sm_rot;
 	int solve_after_nodes, solve_iterations;
 	//
 	bool odom_updated, scan_updated, first_scan;
+	// For scanmatching
+	GraphPose cur_sm_pose, prev_sm_pose;
+	bool sm_odom_updated, sm_pose_updated;
+	Pose prev_sm_odom;
+	ScanMatcher matcher;
+	//
 	Graph* graph;
 	//
-	Pose getFramePose(string frame, string fixed_frame, ros::Time stamp);
-	void laserScan_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
+	float distance(float x1, float x2, float y1, float y2);
+	float rot_distance(float theta1, float theta2);
+	void laserScan_callback(const LaserScan::ConstPtr& msg);
 	void odom_callback(const nav_msgs::Odometry& msg);
 	void drawPoses();
 	void drawScans();
