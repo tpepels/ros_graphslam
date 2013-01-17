@@ -42,6 +42,7 @@ class Graph {
 		//
 		unsigned int idCounter;
 		double resolution, range_threshold;
+		ScanMatcher matcher;
 		ScanGrid scanToOccGrid(const sensor_msgs::LaserScan::ConstPtr& scan, GraphPose& pose);
 		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
 };

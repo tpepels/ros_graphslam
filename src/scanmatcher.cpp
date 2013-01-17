@@ -10,8 +10,8 @@ ScanMatcher::ScanMatcher() {
   input.laser[1] = 0.0;
   input.laser[2] = 0.0;
   //
-  input.max_angular_correction_deg = 45.0;
-  input.max_linear_correction = 0.50;
+  input.max_angular_correction_deg = 20.0;
+  input.max_linear_correction = 0.1;
   input.max_iterations = 10;
   input.epsilon_xy = 0.000001;
   input.epsilon_theta = 0.000001;
@@ -75,9 +75,6 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   input.laser_ref = ref_ldp;
   input.laser_sens = ldp;
   // ROS_INFO("SM change_x: %f, change_y: %f, change_t: %f", change_x, change_y, change_theta);
-  tf::Transform change_t;
-  createTfFromXYTheta(change_x, change_y, change_theta, change_t);
-  change_t = change_t * (new_pose_t * ref_pose_t.inverse());
   //Set initial estimate of input
   input.first_guess[0] = change_x;
   input.first_guess[1] = change_y;
@@ -87,22 +84,26 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   sm_icp(&input, &output);
   //
   if(output.valid){
-    tf::Transform corr_ch_l;
-    createTfFromXYTheta(output.x[0], output.x[1], output.x[2], corr_ch_l);
-    new_pose_t = ref_pose_t * corr_ch_l;
+    tf::Transform output_t;
+    createTfFromXYTheta(output.x[0], output.x[1], output.x[2], output_t);
+    new_pose_t = ref_pose_t * output_t;
     //Set mean pose
     mean[0] = new_pose_t.getOrigin().getX();
     mean[1] = new_pose_t.getOrigin().getY();
     mean[2] = tf::getYaw(new_pose_t.getRotation());
-    ROS_INFO("SM mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
+    ROS_INFO("SM mean_x: %2.4f, mean_y: %2.4f, mean_t: %2.4f, error: %2.4f", mean[0], mean[1], mean[2], output.error);
     //
     //Set covariance
     unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
-    for(unsigned int i = 0; i < rows; i++) {
-      for(unsigned int j = 0; j < cols; j++) {
-        covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
-      }
-    }
+    covariance[0][0] = gsl_matrix_get(output.cov_x_m, 0, 0);
+    covariance[1][1] = gsl_matrix_get(output.cov_x_m, 1, 1);
+    covariance[2][2] = gsl_matrix_get(output.cov_x_m, 2, 2);
+    //for(unsigned int i = 0; i < rows; i++) {
+      // for(unsigned int j = 0; j < cols; j++) {
+        // covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
+        //ROS_INFO("Covariance[%d]: %f", i+j, covariance[i][j]);
+      // }
+    // }
   } else {
     ROS_WARN("Solution was not found.");
   }
