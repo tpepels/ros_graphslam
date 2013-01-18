@@ -53,5 +53,6 @@ private:
 	void odom_callback(const nav_msgs::Odometry& msg);
 	void drawPoses();
 	void drawScans();
+	void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
 };
 #endif

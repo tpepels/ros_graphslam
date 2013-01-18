@@ -46,5 +46,8 @@ class Graph {
 		ScanMatcher matcher;
 		ScanGrid scanToOccGrid(const LaserScan::ConstPtr& scan, GraphPose& pose);
 		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
+		float rot_distance(float theta1, float theta2);
+		float distance(float x1, float x2, float y1, float y2);
+		void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
 };
 #endif

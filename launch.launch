@@ -6,6 +6,7 @@
   	<param name="base_watchdog_timeout" value=".2"/>
   </node>
 
-  <node pkg="graphslam" type="graphslam" name="graphslam" output="screen" launch-prefix="gdb -ex run --args">
+  <node pkg="graphslam" type="graphslam" name="graphslam" output="screen">
+  	<param name="resolution" value=".05" />
   </node>
 </launch>

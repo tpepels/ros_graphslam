@@ -65,7 +65,7 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
 }
 ;
 
-bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3]){
+bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3], double outp[], double& error){
   input.laser_ref = ref_ldp;
   input.laser_sens = ldp;
   // ROS_INFO("SM change_x: %f, change_y: %f, change_t: %f", change_x, change_y, change_theta);
@@ -78,10 +78,16 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   sm_icp(&input, &output);
   //
   if(output.valid){
+    // These values are used as the constraint for the graph-edge
+    outp[0] = output.x[0];
+    outp[1] = output.x[1];
+    outp[2] = output.x[2];
+    error = output.error;
+    //
     tf::Transform output_t;
     createTfFromXYTheta(output.x[0], output.x[1], output.x[2], output_t);
     new_pose_t = ref_pose_t * output_t;
-    //Set mean pose
+    //Set the new pose determined by the matching
     mean[0] = new_pose_t.getOrigin().getX();
     mean[1] = new_pose_t.getOrigin().getY();
     mean[2] = tf::getYaw(new_pose_t.getRotation());
@@ -120,7 +126,7 @@ void ScanMatcher::createTfFromXYTheta(double x, double y, double theta, tf::Tran
 }
 ;
 
-bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3]) {
+bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3], double outp[], double& error) {
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
@@ -133,8 +139,8 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.max_reading = scan_to_match.range_max;
   // Allow more distance grom the solution as the scan-matching distance is higher
   input.max_iterations = 20;
-  input.epsilon_xy = 0.0001;
-  input.epsilon_theta = 0.0001;
+  input.epsilon_xy = 0.00001;
+  input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
   input.max_angular_correction_deg = 90.0;
   input.max_linear_correction = 0.5;
@@ -149,11 +155,11 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
-  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance);
+  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, outp, error);
   return result;
 };
 
-bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3]) {
+bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double& error) {
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
@@ -183,6 +189,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
       dt += 2 * PI;
   }
   double covariance[3][3];
-  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance);
+  double output[3];
+  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, output, error);
   return result;
 };
