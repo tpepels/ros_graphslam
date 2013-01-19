@@ -196,59 +196,44 @@ void GraphSlam::drawPoses(){
 	}
 	pose_publish.publish(poses);
 
+	unsigned int node_list_size = graph->node_list.size();
+	unsigned int edge_list_size = graph->edge_list.size();
 	// Publish the edges between all poses
 	for(unsigned int i = 0; i < graph->edge_list.size(); i++) {
-		
-		unsigned int node_list_size = graph->node_list.size();
-		unsigned int edge_list_size = graph->edge_list.size();
 		geometry_msgs::Point start;
 		//
-		GraphPose * pose;
-		if(i > 0) { // First node has no parent
-			unsigned int edge_parent_id = graph->edge_list[i]->parent_id;
-			if(i < (edge_list_size / 2.)){
-				for(unsigned int k = 0; k < node_list_size; k++){
-					if(graph->node_list[k]->id == edge_parent_id){
-						pose = &(graph->node_list[i]->graph_pose);
-					}
-				}
-			}else{
-				for(int k = node_list_size - 1; k >= 0; k--){
-					if(graph->node_list[k]->id == edge_parent_id){
-						pose = &(graph->node_list[i]->graph_pose);
-					}
-				}
+		GraphPose *parent_pose, *child_pose;
+		unsigned int edge_parent_id = graph->edge_list[i]->parent_id;
+		// ROS_INFO("Parent id: %d", edge_parent_id);
+		for(unsigned int k = 0; k < node_list_size; k++){
+			if(graph->node_list[k]->id == edge_parent_id){
+				parent_pose = &(graph->node_list[k]->graph_pose);
+				// ROS_INFO("Found parent! id %d", graph->node_list[k]->id);
 			}
-			//ROS_INFO("PARENT X: %f, Y: %f", pose->x, pose->y);
-			start.x = pose->x;
-			start.y = pose->y;
-		} else {
-			start.x = 0;
-			start.y = 0;
 		}
+		// ROS_INFO("PARENT X: %f, Y: %f", parent_pose->x, parent_pose->y);
+		start.x = parent_pose->x;
+		start.y = parent_pose->y;
 		//
 		geometry_msgs::Point end;
 		unsigned int edge_child_id = graph->edge_list[i]->child_id;
-		if(i < (edge_list_size / 2.)){
-			for(unsigned int k = 0; k < node_list_size; k++){
-				if(graph->node_list[k]->id == edge_child_id){
-					pose = &(graph->node_list[i]->graph_pose);
-				}
-			}
-		}else{
-			for(int k = node_list_size - 1; k >= 0; k--){
-				if(graph->node_list[k]->id == edge_child_id){
-					pose = &(graph->node_list[i]->graph_pose);
-				}
+		// ROS_INFO("Child id: %d", edge_child_id);
+		for(unsigned int k = 0; k < node_list_size; k++){
+			if(graph->node_list[k]->id == edge_child_id){
+				child_pose = &(graph->node_list[k]->graph_pose);
+				// ROS_INFO("Found child! id %d", graph->node_list[k]->id);
 			}
 		}
-		//ROS_INFO("CHILD X: %f, Y: %f", pose->x, pose->y);
-		end.x = pose->x;
-		end.y = pose->y;
+		//
+		// ROS_INFO("CHILD X: %f, Y: %f", child_pose->x, child_pose->y);
+		end.x = child_pose->x;
+		end.y = child_pose->y;
+		// ROS_INFO("Added edge from x %f y %f, to x %f y %f", start.x, start.y, end.x, end.y);
 		//
 		edges_message.points.push_back(start);
 		edges_message.points.push_back(end);
-		pose = 0;
+		child_pose = 0;
+		parent_pose = 0;
 	}
 	//
 	graph_publish.publish(edges_message);
