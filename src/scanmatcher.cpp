@@ -138,13 +138,13 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 20;
+  input.max_iterations = 15;
   input.epsilon_xy = 0.00001;
   input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 90.0;
+  input.max_angular_correction_deg = 45.0;
   input.max_linear_correction = 0.5;
-  input.max_correspondence_dist = 0.5;
+  input.max_correspondence_dist = 0.3;
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -174,8 +174,8 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   input.epsilon_xy = 0.000001;
   input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 30.0;
-  input.max_linear_correction = 0.2;
+  input.max_angular_correction_deg = 45.0;
+  input.max_linear_correction = 0.5;
   input.max_correspondence_dist = 0.3;
   //
   //Calculate change in position

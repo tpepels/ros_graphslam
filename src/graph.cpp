@@ -46,9 +46,9 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         
         GraphPose last_pose = last_node->graph_pose;
         bool result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
-	    ROS_INFO("Graph SM Error %f", error);
+	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
-        if(result && error < 1.) {
+        if(result && error < 5.) {
             // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             memcpy(e->mean, output, sizeof(double) * 3);
             // Store the covariance at the node
@@ -71,7 +71,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             for(unsigned int i = 0; i < 3; i++) {
                 for(unsigned int j = 0; j < 3; j++) {
                     if(i == j)
-                        e->covariance[i][j] = 1.;
+                        e->covariance[i][j] = .1;
                     else
                         e->covariance[i][j] = 0.;
                 }
@@ -79,16 +79,17 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         }
         //
 	    edge_list.push_back(e);
-        last_node = n;        
-        //if(sqrt(pow(change_x, 2) + pow(change_y, 2)) > 0) {
-            // addNearbyConstraints(10, 2, scan.range_max, 0.1, 0.2);
-        //}
+        last_node = n;
+        node_list.push_back(n);
+        if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
+            addNearbyConstraints(3, 2, 1.5, 0.1, 0.1);
+        }  
     } else {
         last_node = n;
+        node_list.push_back(n);
     }
     //
     n->scan_grid = scanToOccGrid(scan, n->graph_pose);
-    node_list.push_back(n);
     //
     ROS_INFO("Added node: %d, graph pose x: %f, y: %f t: %f.", n->id, n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
 }
@@ -97,7 +98,8 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
 void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta) {
     GraphPose last_pose = last_node->graph_pose;
     sensor_msgs::LaserScan last_scan = last_node->laser_scan;
-    ROS_INFO("Searching nearby constraints.");
+    int last_id = last_node->id;
+    ROS_INFO("Searching nearby constraints. id: %d.", last_id);
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
     Node* n;
@@ -123,21 +125,19 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         //
         ScanMatcher matcher;
         if(matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
-            ROS_INFO("SM Error %f", error);
+            // ROS_INFO("SM Error %f", error);
             // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
-            if (abs(dx - mean[0]) <= min_dist_delta && abs(dy - mean[1]) <= min_dist_delta && abs(dt - mean[2])) {
+            if (abs(dx - output[0]) <= min_dist_delta && abs(dy - output[1]) <= min_dist_delta && abs(dt - output[2]) < min_angle_delta) {
                 // Add the link between the current and the previous node
-                Edge * e;
-                e->child_id = last_node->id;
+                Edge * e = new Edge();
+                e->child_id = last_id;
                 e->parent_id = n->id;
                 //
-                memcpy(e->mean, mean, sizeof(double) * 3);
+                memcpy(e->mean, output, sizeof(double) * 3);
                 memcpy(e->covariance, cov, sizeof(double) * 9);
                 edge_list.push_back(e);
-                ROS_INFO("Found a link between nodes %d and %d.", last_node->id, n->id);
+                // ROS_INFO("Found a link between nodes.");
             }
-        } else {
-            ROS_ERROR("Error scan matching!");
         }
     }
 }
@@ -351,7 +351,7 @@ void Graph::solve(unsigned int iterations){
     //Convert pose nodes to g2o node structure and add in the graph.
     for(unsigned int i = 0; i < node_list.size(); i ++){
         Node* curNode = node_list[i];
-        ROS_INFO("Curnode id: %d", curNode->id);
+        // ROS_INFO("Curnode id: %d", curNode->id);
         // Convert the node.
         GraphPose graph_pose = curNode->graph_pose;
         g2o::SE2 converted_pose(graph_pose.x, graph_pose.y, graph_pose.theta);        
@@ -401,8 +401,10 @@ void Graph::solve(unsigned int iterations){
     for(unsigned int i = 0; i < node_list.size(); i++){
         GraphPose* currentPose = &(node_list[i]->graph_pose);
         g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i]->id))->estimate();
-        //ROS_INFO("Node %d, pose before optimize: x %f, y %f, t %f", node_list[i]->id, currentPose->x, currentPose->y, currentPose->theta);
-        //ROS_INFO("Node %d, pose after optimize: x %f, y %f, t %f", node_list[i]->id, optimized_pose[0], optimized_pose[1], optimized_pose[2]);
+        if(rot_distance(currentPose->theta, optimized_pose[2]) != 0.) {
+            ROS_INFO("Node %d, pose before optimize: x %f, y %f, t %f", node_list[i]->id, currentPose->x, currentPose->y, currentPose->theta);
+            ROS_INFO("Node %d, pose after optimize: x %f, y %f, t %f", node_list[i]->id, optimized_pose[0], optimized_pose[1], optimized_pose[2]);
+        }
         currentPose->x = optimized_pose[0];
         currentPose->y = optimized_pose[1];
         currentPose->theta = optimized_pose[2];
