@@ -43,50 +43,84 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         Edge * e = new Edge();
         e->child_id = n->id;
         e->parent_id = last_node->id;
-        
         GraphPose last_pose = last_node->graph_pose;
+        ScanMatcher matcher;
         bool result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
 	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
-        if(result && error < 5.) {
-            // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
-            memcpy(e->mean, output, sizeof(double) * 3);
-            // Store the covariance at the node
-            memcpy(e->covariance, covariance, sizeof(double) * 9);
+        if(result) {
+        // if(false) {
             // Update the node's position according to the result from the scan-match
             n->graph_pose.x = mean[0];
             n->graph_pose.y = mean[1];
             n->graph_pose.theta = mean[2];
-        } else {
-            ROS_ERROR("Error scan matching while storing node, using default values!");
-            // Use the difference between the poses as the estimate
-            float drot1 = atan2(pose.y - last_pose.y, pose.x - last_pose.x) - last_pose.theta;
-            float dtrans = distance(pose.x, last_pose.x, pose.y, last_pose.y);
-            float drot2 = rot_distance(pose.theta, last_pose.theta);
+            //
+            g2o::SE2 se_new(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
+            g2o::SE2 se_prev(last_pose.x, last_pose.y, last_pose.theta);
+            g2o::SE2 transf = se_prev.inverse() * se_new;
+            //
+            e->mean[0] = transf[0];
+            e->mean[1] = transf[1];
+            e->mean[2] = transf[2];
+            /*
+            float drot1 = atan2(n->graph_pose.y - last_pose.y, n->graph_pose.x - last_pose.x) - last_pose.theta;
+            float dtrans = distance(n->graph_pose.x, last_pose.x, n->graph_pose.y, last_pose.y);
+            float drot2 = rot_distance(n->graph_pose.theta, last_pose.theta) - drot1;
             //
             e->mean[0] = dtrans * cos(last_pose.theta + drot1);
             e->mean[1] = dtrans * sin(last_pose.theta + drot1);
             e->mean[2] = drot1 + drot2;
+            */
+            // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
+            // memcpy(e->mean, output, sizeof(double) * 3);
+            // Store the covariance at the node
+            memcpy(e->covariance, covariance, sizeof(double) * 9);
+        } else {
+            ROS_ERROR("Error scan matching while storing node, using default values!");
+            g2o::SE2 se_new(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
+            g2o::SE2 se_prev(last_pose.x, last_pose.y, last_pose.theta);
+            g2o::SE2 transf = se_prev.inverse() * se_new;
             //
+            e->mean[0] = transf[0];
+            e->mean[1] = transf[1];
+            e->mean[2] = transf[2];
+            /*
+            // Use the difference between the poses as the estimate
+            float drot1 = atan2(pose.y - last_pose.y, pose.x - last_pose.x) - last_pose.theta;
+            float dtrans = distance(pose.x, last_pose.x, pose.y, last_pose.y);
+            float drot2 = pose.theta - last_pose.theta - drot1;
+            //
+            e->mean[0] = dtrans * cos(last_pose.theta + drot1);
+            e->mean[1] = dtrans * sin(last_pose.theta + drot1);
+            e->mean[2] = drot1 + drot2;
+            */
             for(unsigned int i = 0; i < 3; i++) {
                 for(unsigned int j = 0; j < 3; j++) {
-                    if(i == j)
-                        e->covariance[i][j] = .1;
-                    else
                         e->covariance[i][j] = 0.;
                 }
             }
+            // Use a covariance estimate
+            e->covariance[0][0] = 0.025;
+            e->covariance[1][1] = 0.025;
+            e->covariance[2][2] = 0.009;
+            //
+            ROS_INFO("Last pose: %f %f %f", last_pose.x, last_pose.y, last_pose.theta);
+            ROS_INFO("New pose: %f %f %f", pose.x, pose.y, pose.theta);
+            ROS_INFO("SM Mean: %f %f %f", mean[0], mean[1], mean[2]);
+            ROS_INFO("Mean: %f %f %f", e->mean[0], e->mean[1], e->mean[2]);
+            ROS_INFO("Output: %f %f %f", output[0], output[1], output[2]);
         }
         //
 	    edge_list.push_back(e);
-        last_node = n;
         node_list.push_back(n);
+        last_node = n;
+        //
         if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
-            addNearbyConstraints(3, 2, 1.5, 0.1, 0.1);
+             addNearbyConstraints(5, 2, 2, 0.1, 0.1);
         }  
     } else {
-        last_node = n;
         node_list.push_back(n);
+        last_node = n;
     }
     //
     n->scan_grid = scanToOccGrid(scan, n->graph_pose);
@@ -98,7 +132,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
 void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta) {
     GraphPose last_pose = last_node->graph_pose;
     sensor_msgs::LaserScan last_scan = last_node->laser_scan;
-    int last_id = last_node->id;
+    unsigned int last_id = last_node->id;
     ROS_INFO("Searching nearby constraints. id: %d.", last_id);
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
@@ -120,11 +154,18 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         // The nodes are too far apart
         if(distance > dist_limit)
             continue;
+        // Don't add a new constraint if one already exists
+        bool exists = false;
+        for(unsigned int j = 0; j < edge_list.size(); j++) {
+            if(edge_list[j]->child_id == last_id && edge_list[j]->parent_id == n->id) {
+                exists = true;
+                break;
+            }
+        }
         double mean[3], output[3];
         double cov[3][3];
-        //
         ScanMatcher matcher;
-        if(matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
+        if(!exists && matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
             // ROS_INFO("SM Error %f", error);
             // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
             if (abs(dx - output[0]) <= min_dist_delta && abs(dy - output[1]) <= min_dist_delta && abs(dt - output[2]) < min_angle_delta) {
@@ -133,7 +174,14 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
                 e->child_id = last_id;
                 e->parent_id = n->id;
                 //
-                memcpy(e->mean, output, sizeof(double) * 3);
+                // memcpy(e->mean, output, sizeof(double) * 3);
+                g2o::SE2 se_prev(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
+                g2o::SE2 se_new(last_pose.x, last_pose.y, last_pose.theta);
+                g2o::SE2 transf = se_prev.inverse() * se_new;
+                //
+                e->mean[0] = transf[0];
+                e->mean[1] = transf[1];
+                e->mean[2] = transf[2];
                 memcpy(e->covariance, cov, sizeof(double) * 9);
                 edge_list.push_back(e);
                 // ROS_INFO("Found a link between nodes.");
@@ -345,7 +393,8 @@ void Graph::solve(unsigned int iterations){
     SlamLinearSolver* linearSolver = new SlamLinearSolver();
     linearSolver->setBlockOrdering(false);
     SlamBlockSolver* blockSolver = new SlamBlockSolver(linearSolver);
-    g2o::OptimizationAlgorithmGaussNewton* solverGauss = new g2o::OptimizationAlgorithmGaussNewton(blockSolver);
+    g2o::OptimizationAlgorithmGaussNewton* solverGauss = 
+            new g2o::OptimizationAlgorithmGaussNewton(blockSolver);
     sparseOptimizer.setAlgorithm(solverGauss);
 
     //Convert pose nodes to g2o node structure and add in the graph.
@@ -393,7 +442,7 @@ void Graph::solve(unsigned int iterations){
     }
 
     //Optimize!
-    sparseOptimizer.setVerbose(true);
+    sparseOptimizer.setVerbose(false);
     sparseOptimizer.initializeOptimization();
     sparseOptimizer.optimize(iterations);
 
@@ -401,7 +450,8 @@ void Graph::solve(unsigned int iterations){
     for(unsigned int i = 0; i < node_list.size(); i++){
         GraphPose* currentPose = &(node_list[i]->graph_pose);
         g2o::SE2 optimized_pose = ((g2o::VertexSE2*) sparseOptimizer.vertex(node_list[i]->id))->estimate();
-        if(rot_distance(currentPose->theta, optimized_pose[2]) != 0.) {
+        //
+        if(rot_distance(currentPose->theta, optimized_pose[2]) != 0. || distance(currentPose->x, optimized_pose[0], currentPose->y, optimized_pose[1]) > 0.) {
             ROS_INFO("Node %d, pose before optimize: x %f, y %f, t %f", node_list[i]->id, currentPose->x, currentPose->y, currentPose->theta);
             ROS_INFO("Node %d, pose after optimize: x %f, y %f, t %f", node_list[i]->id, optimized_pose[0], optimized_pose[1], optimized_pose[2]);
         }

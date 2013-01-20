@@ -99,8 +99,9 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
       for(unsigned int i = 0; i < cols; i++) {
         for(unsigned int j = 0; j < rows; j++) {
           covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
-          // ROS_INFO("Covariance[%d]: %f", i+j, covariance[i][j]);
+          std::cout << covariance[i][j] << " ";
         }
+        std::cout << endl;
       }
     }
   } else {
@@ -145,6 +146,15 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.max_angular_correction_deg = 45.0;
   input.max_linear_correction = 0.5;
   input.max_correspondence_dist = 0.3;
+  
+  double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
+  double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
+  double drot2 = new_pose.theta - ref_pose.theta - drot1;
+  //
+  double dx = dtrans * cos(ref_pose.theta + drot1);
+  double dy = dtrans * sin(ref_pose.theta + drot1);
+  double dt = drot1 + drot2;
+  /*
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -155,6 +165,7 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
+  */
   bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, outp, error);
   return result;
 };
@@ -177,7 +188,15 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   input.max_angular_correction_deg = 45.0;
   input.max_linear_correction = 0.5;
   input.max_correspondence_dist = 0.3;
+  
+  double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
+  double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
+  double drot2 = new_pose.theta - ref_pose.theta - drot1;
   //
+  double dx = dtrans * cos(ref_pose.theta + drot1);
+  double dy = dtrans * sin(ref_pose.theta + drot1);
+  double dt = drot1 + drot2;
+  /*
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -188,6 +207,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
+  */
   double covariance[3][3];
   double output[3];
   bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, output, error);

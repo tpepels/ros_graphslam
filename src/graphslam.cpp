@@ -126,7 +126,6 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 	// If the new distance is large enough update the current pose based on the scanmatching result
 	if(odom_updated || sm_dist >= min_sm_dist || abs(sm_rot_dist) >= min_sm_rot) {
 		// ROS_INFO("Odom changed by: xy: %f, theta: %f", sm_dist, sm_rot_dist);
-		sm_pose_updated = false;
 		sm_odom_updated = true;
 		prev_sm_odom = cur_sm_odom;
 		cur_sm_odom = msg.pose.pose;

@@ -43,7 +43,7 @@ class Graph {
 		//
 		unsigned int idCounter;
 		double resolution, range_threshold;
-		ScanMatcher matcher;
+		// ScanMatcher matcher;
 		ScanGrid scanToOccGrid(const LaserScan::ConstPtr& scan, GraphPose& pose);
 		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
 		float rot_distance(float theta1, float theta2);
