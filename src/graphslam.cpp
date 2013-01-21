@@ -23,8 +23,8 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
     nh.param("graphslam/min_node_dist", min_node_dist, 0.3);
     nh.param("graphslam/min_node_rot", min_node_rot, 0.45);
     // This is the distance used for the scanmatching correction
-    nh.param("graphslam/min_sm_dist", min_sm_dist, 0.05);
-    nh.param("graphslam/min_sm_rot", min_sm_rot, 0.15);
+    nh.param("graphslam/min_sm_dist", min_sm_dist, 0.01);
+    nh.param("graphslam/min_sm_rot", min_sm_rot, 0.01);
     //
     nh.param("graphslam/solve_after_nodes", solve_after_nodes, 10);
     nh.param("graphslam/laser_range_t", range_t, 0.95);
@@ -41,10 +41,8 @@ GraphSlam::GraphSlam(ros::NodeHandle& nh) {
 	prev_graph_odom.position.y = 0;
 	prev_graph_odom.orientation = tf::createQuaternionMsgFromYaw(0);
 	prev_sm_odom = prev_graph_odom;
-	//cur_sm_odom = prev_sm_odom;
 	//
-	graph = new Graph(resolution, range_t);
-	ROS_INFO("GraphSlam Constructor finished");
+	graph = new Graph(resolution, range_t);	
 }
 ;
 
@@ -66,10 +64,10 @@ void GraphSlam::laserScan_callback(const LaserScan::ConstPtr& msg){
 		LaserScan ref_scan = *cur_sm_scan;		
 		//
 		bool result = matcher.scanMatch(scan, cur_sm_pose, ref_scan, prev_sm_pose, mean, error);
-		//ROS_INFO("SM Error %f", error);
+		// ROS_INFO("SM Error %f", error);
 		if(result) {
-			ROS_INFO("Estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
-			ROS_INFO("ScanMatched pose: x %f y: %f t: %f", mean[0], mean[1], mean[2]);
+			// ROS_INFO("Estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
+			// ROS_INFO("ScanMatched pose: x %f y: %f t: %f", mean[0], mean[1], mean[2]);
 			cur_sm_pose.x = mean[0];
 			cur_sm_pose.y = mean[1];
 			cur_sm_pose.theta = mean[2];
@@ -78,8 +76,12 @@ void GraphSlam::laserScan_callback(const LaserScan::ConstPtr& msg){
 			// ROS_WARN("Scanmatching in GraphSlam failed.");
 			ROS_WARN("Using estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
 		}
-		// 
-		cur_sm_scan = msg;
+		//
+		if(distance(cur_sm_pose.x, prev_sm_pose.x, cur_sm_pose.y, prev_sm_pose.y) > 0.1 
+			|| abs(rot_distance(cur_sm_pose.theta, prev_sm_pose.theta)) > 0.1) {
+			prev_sm_pose = cur_sm_pose;
+			cur_sm_scan = msg;
+		}
 		sm_odom_updated = false;
 		sm_pose_updated = true;
 	}
@@ -120,10 +122,8 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 	float sm_dist = distance(prev_sm_odom.position.x, new_x, prev_sm_odom.position.y, new_y);
 	float sm_rot_dist = rot_distance(new_theta, prev_theta);
 	// If the new distance is large enough update the current pose based on the scanmatching result
-	if(odom_updated || sm_dist >= min_sm_dist || abs(sm_rot_dist) >= min_sm_rot) {
+	//if(odom_updated || sm_dist >= min_sm_dist || abs(sm_rot_dist) >= min_sm_rot) {
 		// ROS_INFO("Odom changed by: xy: %f, theta: %f", sm_dist, sm_rot_dist);
-		// Store the previous pose as reference
-		prev_sm_pose = cur_sm_pose;
 		// Apply the odometry motion model to get an initial estimate of the new position
 		float drot1 = atan2(new_y - prev_sm_odom.position.y, new_x - prev_sm_odom.position.x) - prev_theta;
 		float drot2 = sm_rot_dist - drot1;
@@ -135,7 +135,7 @@ void GraphSlam::odom_callback(const nav_msgs::Odometry& msg){
 		prev_sm_odom = msg.pose.pose;
 		sm_odom_updated = true;
 		// cur_sm_odom = msg.pose.pose;
-	}
+	//}
 }
 ;
 

@@ -75,6 +75,7 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   input.first_guess[2] = change_theta; 
   // ROS_INFO("SM first_guess_x: %f, first_guess_y: %f, change_t: %f", input.first_guess[0], input.first_guess[1], input.first_guess[2]);
   //Finally, perform scan matching.
+  sm_result output;
   sm_icp(&input, &output);
   //
   if(output.valid){
@@ -137,14 +138,14 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 15;
-  input.epsilon_xy = 0.00001;
-  input.epsilon_theta = 0.00001;
+  input.max_iterations = 30;
+  input.epsilon_xy = 0.000001;
+  input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 45.0;
-  input.max_linear_correction = 0.5;
-  input.max_correspondence_dist = 0.3;
-  
+  input.max_angular_correction_deg = 20.0;
+  input.max_linear_correction = 0.2;
+  input.max_correspondence_dist = 0.7;
+  /*
   double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
   double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
   double drot2 = new_pose.theta - ref_pose.theta - drot1;
@@ -152,7 +153,7 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   double dx = dtrans * cos(ref_pose.theta + drot1);
   double dy = dtrans * sin(ref_pose.theta + drot1);
   double dt = drot1 + drot2;
-  /*
+  */
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -163,7 +164,7 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
-  */
+  
   bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, outp, error);
   return result;
 };
@@ -183,10 +184,10 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   input.epsilon_xy = 0.000001;
   input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 45.0;
+  input.max_angular_correction_deg = 40.0;
   input.max_linear_correction = 0.5;
-  input.max_correspondence_dist = 0.3;
-  
+  input.max_correspondence_dist = 0.4;
+  /*
   double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
   double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
   double drot2 = new_pose.theta - ref_pose.theta - drot1;
@@ -194,7 +195,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   double dx = dtrans * cos(ref_pose.theta + drot1);
   double dy = dtrans * sin(ref_pose.theta + drot1);
   double dt = drot1 + drot2;
-  /*
+  */
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -205,7 +206,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
-  */
+  
   double covariance[3][3];
   double output[3];
   bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, output, error);
