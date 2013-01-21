@@ -115,9 +115,9 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         node_list.push_back(n);
         last_node = n;
         //
-        if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
-             addNearbyConstraints(5, 2, 2, 0.1, 0.1);
-        }  
+        // if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
+        //     addNearbyConstraints(5, 2, 2, 0.1, 0.1);
+        // }  
     } else {
         node_list.push_back(n);
         last_node = n;
@@ -133,7 +133,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
     GraphPose last_pose = last_node->graph_pose;
     sensor_msgs::LaserScan last_scan = last_node->laser_scan;
     unsigned int last_id = last_node->id;
-    ROS_INFO("Searching nearby constraints. id: %d.", last_id);
+    // ROS_INFO("Searching nearby constraints. id: %d.", last_id);
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
     Node* n;

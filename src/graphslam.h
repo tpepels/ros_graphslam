@@ -40,9 +40,9 @@ private:
 	//
 	bool odom_updated, scan_updated, first_scan;
 	// For scanmatching
-	GraphPose cur_sm_pose;
+	GraphPose cur_sm_pose, prev_sm_pose;
 	bool sm_odom_updated, sm_pose_updated;
-	Pose prev_sm_odom, cur_sm_odom;
+	Pose prev_sm_odom;
 	ScanMatcher matcher;
 	//
 	Graph* graph;

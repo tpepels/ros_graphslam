@@ -99,13 +99,11 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
       for(unsigned int i = 0; i < cols; i++) {
         for(unsigned int j = 0; j < rows; j++) {
           covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
-          std::cout << covariance[i][j] << " ";
+          // std::cout << covariance[i][j] << " ";
         }
-        std::cout << endl;
+        // std::cout << endl;
       }
     }
-  } else {
-    ROS_WARN("Solution was not found.");
   }
   //
   ld_free(ref_ldp);
