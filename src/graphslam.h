@@ -29,31 +29,25 @@ public:
 	~GraphSlam();
 	void spin();
 private:
-	ros::Subscriber laserScan_Sub, odometry_Sub;
+	ros::Subscriber laserScan_Sub, odometry_Sub, pose_Sub;
 	ros::Publisher map_publish, pose_publish, graph_publish, pose_publisher;
-	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
-	Pose prev_graph_odom;
-	LaserScan::ConstPtr cur_scan, cur_sm_scan;
-	double resolution, min_node_dist, min_node_rot, range_t, min_sm_dist, min_sm_rot;
+	Pose prev_graph_pose;
+	LaserScan::ConstPtr cur_scan;
+	double resolution, min_node_dist, min_node_rot, range_t;
 	int solve_after_nodes, solve_iterations;
 	//
+	GraphPose cur_sm_pose;
 	bool odom_updated, scan_updated, first_scan;
-	// For scanmatching
-	GraphPose cur_sm_pose, prev_sm_pose;
-	bool sm_odom_updated, sm_pose_updated;
-	Pose prev_sm_odom;
-	ScanMatcher matcher;
 	//
 	Graph* graph;
 	//
 	float distance(float x1, float x2, float y1, float y2);
 	float rot_distance(float theta1, float theta2);
 	void laserScan_callback(const LaserScan::ConstPtr& msg);
-	void odom_callback(const nav_msgs::Odometry& msg);
+	void pose_callback(const PoseStamped& msg);
 	void drawPoses();
 	void drawScans();
-	void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
 	void rosToGraphPose(const Pose& ros_pose, GraphPose& g_pose);
 };
 #endif

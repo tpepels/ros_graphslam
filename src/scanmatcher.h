@@ -34,7 +34,7 @@ class ScanMatcher {
   tf::Transform new_pose_t, ref_pose_t;
   //
   void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
-  void convertScantoDLP(LaserScan& scan, LDP& ldp);
+  double convertScantoDLP(LaserScan& scan, LDP& ldp);
   bool processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3], double outp[], double& error);
 };
 #endif

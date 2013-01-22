@@ -33,9 +33,10 @@ ScanMatcher::ScanMatcher() {
 }
 ;
 
-void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
+double ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   unsigned int numberOfScans = scan.ranges.size();
   ldp = ld_alloc_new(numberOfScans);
+  double invalid_scans = 0;
   //
   for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
@@ -46,6 +47,7 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
     } else {
       ldp->valid[i] = 0;
       ldp->readings[i] = -1;
+      invalid_scans++;
     }
     //Set angle
     ldp->theta[i] = scan.angle_min + i * scan.angle_increment;
@@ -62,6 +64,7 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   ldp->true_pose[0] = 0.0;
   ldp->true_pose[1] = 0.0;
   ldp->true_pose[2] = 0.0;
+  return invalid_scans / ((double) numberOfScans);
 }
 ;
 
@@ -78,8 +81,8 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   sm_result output;
   sm_icp(&input, &output);
   //
-  if(output.valid){
-    ROS_INFO("Valid: %d", output.nvalid);
+  if(output.valid && output.nvalid > 100){
+    // ROS_INFO("Valid: %d", output.nvalid);
     // These values are used as the constraint for the graph-edge
     outp[0] = output.x[0];
     outp[1] = output.x[1];
@@ -111,7 +114,7 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   ld_free(ref_ldp);
   ld_free(ldp);
   //Return
-  if(output.valid) {
+  if(output.valid && output.nvalid > 100) {
     return true;
   } else {
     return false;
@@ -131,7 +134,8 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
-  convertScantoDLP(scan_to_match, current_ldp);
+  double invalid_rate = convertScantoDLP(scan_to_match, current_ldp);
+  // ROS_INFO("Invalid: %f", invalid_rate);
   // Transforms for the new pose and reference pose
   createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
@@ -139,12 +143,12 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.min_reading = scan_to_match.range_min;
   input.max_reading = scan_to_match.range_max;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 30;
-  input.epsilon_xy = 0.000001;
-  input.epsilon_theta = 0.000001;
+  input.max_iterations = 10;
+  input.epsilon_xy = 0.00001;
+  input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 20.0;
-  input.max_linear_correction = 0.2;
+  input.max_angular_correction_deg = 50.0;
+  input.max_linear_correction = 0.5;
   input.max_correspondence_dist = 0.7;
   /*
   double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
@@ -174,7 +178,8 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
-  convertScantoDLP(scan_to_match, current_ldp);
+  double invalid_rate = convertScantoDLP(scan_to_match, current_ldp);
+  // ROS_INFO("Invalid: %f", invalid_rate);
   // Transforms for the new pose and reference pose
   createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
@@ -185,9 +190,9 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, Laser
   input.epsilon_xy = 0.000001;
   input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 40.0;
-  input.max_linear_correction = 0.5;
-  input.max_correspondence_dist = 0.4;
+  input.max_angular_correction_deg = 30.0;
+  input.max_linear_correction = 0.4;
+  input.max_correspondence_dist = 0.3;
   /*
   double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
   double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));

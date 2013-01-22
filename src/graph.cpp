@@ -43,11 +43,12 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
 	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
         if(result) {
+            ROS_INFO("Using sm result for graph node.");
         // if(false) {
             // Update the node's position according to the result from the scan-match
-            n->graph_pose.x = mean[0];
-            n->graph_pose.y = mean[1];
-            n->graph_pose.theta = mean[2];
+            //n->graph_pose.x = mean[0];
+            //n->graph_pose.y = mean[1];
+            //n->graph_pose.theta = mean[2];
             //
             g2o::SE2 se_new(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
             g2o::SE2 se_prev(last_pose.x, last_pose.y, last_pose.theta);
@@ -56,8 +57,6 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             e->mean[0] = transf[0];
             e->mean[1] = transf[1];
             e->mean[2] = transf[2];
-            // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
-            // memcpy(e->mean, output, sizeof(double) * 3);
             // Store the covariance at the node
             memcpy(e->covariance, covariance, sizeof(double) * 9);
         } else {
@@ -78,22 +77,14 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             e->covariance[0][0] = 0.025;
             e->covariance[1][1] = 0.025;
             e->covariance[2][2] = 0.009;
-            /*
-            ROS_INFO("Last pose: %f %f %f", last_pose.x, last_pose.y, last_pose.theta);
-            ROS_INFO("New pose: %f %f %f", pose.x, pose.y, pose.theta);
-            ROS_INFO("SM Mean: %f %f %f", mean[0], mean[1], mean[2]);
-            ROS_INFO("Mean: %f %f %f", e->mean[0], e->mean[1], e->mean[2]);
-            ROS_INFO("Output: %f %f %f", output[0], output[1], output[2]);
-            */
         }
         //
 	    edge_list.push_back(e);
         node_list.push_back(n);
         last_node = n;
-        //
-        if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
-             addNearbyConstraints(8, 1, 2, 0.1, 0.1);
-        }  
+        if(idCounter % 3 == 0 && distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
+             addNearbyConstraints(8, 1, 2, 0.2, 0.2);
+        } 
     } else {
         node_list.push_back(n);
         last_node = n;
