@@ -78,6 +78,7 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   sm_icp(&input, &output);
   //
   if(output.valid){
+    ROS_INFO("Valid: %d", output.nvalid);
     // These values are used as the constraint for the graph-edge
     outp[0] = output.x[0];
     outp[1] = output.x[1];
