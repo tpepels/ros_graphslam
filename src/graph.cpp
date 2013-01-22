@@ -16,13 +16,8 @@ Graph::Graph(double resolution, double range_threshold) {
 };
 
 Graph::~Graph(){
-    for(unsigned int i = 0; i < node_list.size(); i++){
-        delete &node_list[i];
-    }
-    //
-    for(unsigned int i = 0; i < edge_list.size(); i++){
-        delete &edge_list[i];
-    }
+    node_list.clear();
+    edge_list.clear();
 }
 
 void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan){
@@ -44,7 +39,6 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         e->child_id = n->id;
         e->parent_id = last_node->id;
         GraphPose last_pose = last_node->graph_pose;
-        ScanMatcher matcher;
         bool result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
 	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
@@ -62,21 +56,12 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             e->mean[0] = transf[0];
             e->mean[1] = transf[1];
             e->mean[2] = transf[2];
-            /*
-            float drot1 = atan2(n->graph_pose.y - last_pose.y, n->graph_pose.x - last_pose.x) - last_pose.theta;
-            float dtrans = distance(n->graph_pose.x, last_pose.x, n->graph_pose.y, last_pose.y);
-            float drot2 = rot_distance(n->graph_pose.theta, last_pose.theta) - drot1;
-            //
-            e->mean[0] = dtrans * cos(last_pose.theta + drot1);
-            e->mean[1] = dtrans * sin(last_pose.theta + drot1);
-            e->mean[2] = drot1 + drot2;
-            */
             // ROS_INFO("Graph mean_x: %f, mean_y: %f, mean_t: %f", mean[0], mean[1], mean[2]);
             // memcpy(e->mean, output, sizeof(double) * 3);
             // Store the covariance at the node
             memcpy(e->covariance, covariance, sizeof(double) * 9);
         } else {
-            ROS_ERROR("Error scan matching while storing node, using default values!");
+            ROS_WARN("Error scan matching while storing node, using default values!");
             g2o::SE2 se_new(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
             g2o::SE2 se_prev(last_pose.x, last_pose.y, last_pose.theta);
             g2o::SE2 transf = se_prev.inverse() * se_new;
@@ -84,16 +69,6 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             e->mean[0] = transf[0];
             e->mean[1] = transf[1];
             e->mean[2] = transf[2];
-            /*
-            // Use the difference between the poses as the estimate
-            float drot1 = atan2(pose.y - last_pose.y, pose.x - last_pose.x) - last_pose.theta;
-            float dtrans = distance(pose.x, last_pose.x, pose.y, last_pose.y);
-            float drot2 = pose.theta - last_pose.theta - drot1;
-            //
-            e->mean[0] = dtrans * cos(last_pose.theta + drot1);
-            e->mean[1] = dtrans * sin(last_pose.theta + drot1);
-            e->mean[2] = drot1 + drot2;
-            */
             for(unsigned int i = 0; i < 3; i++) {
                 for(unsigned int j = 0; j < 3; j++) {
                         e->covariance[i][j] = 0.;
@@ -103,12 +78,13 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
             e->covariance[0][0] = 0.025;
             e->covariance[1][1] = 0.025;
             e->covariance[2][2] = 0.009;
-            //
+            /*
             ROS_INFO("Last pose: %f %f %f", last_pose.x, last_pose.y, last_pose.theta);
             ROS_INFO("New pose: %f %f %f", pose.x, pose.y, pose.theta);
             ROS_INFO("SM Mean: %f %f %f", mean[0], mean[1], mean[2]);
             ROS_INFO("Mean: %f %f %f", e->mean[0], e->mean[1], e->mean[2]);
             ROS_INFO("Output: %f %f %f", output[0], output[1], output[2]);
+            */
         }
         //
 	    edge_list.push_back(e);
@@ -116,7 +92,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         last_node = n;
         //
         if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
-             addNearbyConstraints(5, 2, 2, 0.1, 0.1);
+             addNearbyConstraints(8, 1, 2, 0.1, 0.1);
         }  
     } else {
         node_list.push_back(n);
@@ -133,7 +109,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
     GraphPose last_pose = last_node->graph_pose;
     sensor_msgs::LaserScan last_scan = last_node->laser_scan;
     unsigned int last_id = last_node->id;
-    ROS_INFO("Searching nearby constraints. id: %d.", last_id);
+    // ROS_INFO("Searching nearby constraints. id: %d.", last_id);
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
     Node* n;
@@ -164,7 +140,6 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         }
         double mean[3], output[3];
         double cov[3][3];
-        ScanMatcher matcher;
         if(!exists && matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
             // ROS_INFO("SM Error %f", error);
             // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher

@@ -31,7 +31,6 @@ class ScanMatcher {
   bool graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3], double outp[], double& error);
  private:
   sm_params input;
-  sm_result output;
   tf::Transform new_pose_t, ref_pose_t;
   //
   void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
