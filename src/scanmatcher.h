@@ -27,11 +27,13 @@ using namespace sensor_msgs;
 class ScanMatcher {
  public:
   ScanMatcher();
-  bool scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double& error);
+  bool scanMatch(LaserScan& scan_to_match, double change_x, double change_y, double change_theta, GraphPose& prev_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double& error);
   bool graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double covariance[][3], double outp[], double& error);
  private:
   sm_params input;
+  sm_result output;
   tf::Transform new_pose_t, ref_pose_t;
+  tf::TransformListener tf_listener;
   //
   void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
   double convertScantoDLP(LaserScan& scan, LDP& ldp);

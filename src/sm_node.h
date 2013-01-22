@@ -21,17 +21,19 @@ public:
 private:
 	ros::Subscriber laserScan_Sub, odometry_Sub;
 	ros::Publisher pose_publisher;
+	tf::TransformListener tf_listener;
 	// The last pose and corresponding scan
-	GraphPose cur_sm_pose, prev_sm_pose;
+	GraphPose cur_sm_pose, est_sm_pose, prev_sm_pose;
 	LaserScan::ConstPtr cur_sm_scan;
 	bool first_scan, sm_odom_updated, sm_pose_updated;
 	// For scanmatching
-	Pose prev_sm_odom;
+	Pose prev_sm_odom, cur_odom;
 	ScanMatcher matcher;
 
 	float distance(float x1, float x2, float y1, float y2);
 	float rot_distance(float theta1, float theta2);
 	void laserScan_callback(const LaserScan::ConstPtr& msg);
 	void odom_callback(const nav_msgs::Odometry& msg);
+	Pose getFramePose(string frame, string fixed_frame, ros::Time stamp);
 };
 #endif

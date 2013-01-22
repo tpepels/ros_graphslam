@@ -12,30 +12,32 @@ SMNode::SMNode(ros::NodeHandle& nh) {
 	cur_sm_pose.x = 0.;
 	cur_sm_pose.y = 0.;
 	cur_sm_pose.theta = 0;
+	prev_sm_pose = cur_sm_pose;
 	//
 	prev_sm_odom.position.x = 0;
 	prev_sm_odom.position.y = 0;
 	prev_sm_odom.orientation = tf::createQuaternionMsgFromYaw(0);
+	sm_pose_updated = true;
 }
 ;
 
+double dx = 0, dy = 0, dt = 0;
 void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){	
 	// Check if we will perform scanmatching
 	if(!first_scan && sm_odom_updated) {
 		//ROS_INFO("Graphslam scanmatching!");
 		double mean[3], error;
-		LaserScan scan = *msg, ref_scan = *cur_sm_scan;		
-		bool result = matcher.scanMatch(scan, cur_sm_pose, ref_scan, prev_sm_pose, mean, error);
+		LaserScan scan = *msg, ref_scan = *cur_sm_scan;
+		bool result = matcher.scanMatch(scan, dx, dy, dt, cur_sm_pose, ref_scan, prev_sm_pose, mean, error);
 		// ROS_INFO("SM Error %f", error);
 		if(result) {
-			// ROS_INFO("Estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
-			// ROS_INFO("ScanMatched pose: x %f y: %f t: %f", mean[0], mean[1], mean[2]);
 			cur_sm_pose.x = mean[0];
 			cur_sm_pose.y = mean[1];
 			cur_sm_pose.theta = mean[2];
 		} else {
 			// In this case, cur_sm_pose will have the value updated by the odometry
 			// ROS_WARN("Scanmatching in GraphSlam failed.");
+			cur_sm_pose = est_sm_pose;
 			ROS_WARN("Using estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
 		}
 		// Check if we should update the reference scan to a new frame
@@ -44,8 +46,8 @@ void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){
 			prev_sm_pose = cur_sm_pose;
 			cur_sm_scan = msg;
 		}
-		sm_odom_updated = false;
 		sm_pose_updated = true;
+		prev_sm_odom = cur_odom;
 	}
 	// Store the first reference scan for later use
 	if(first_scan) {
@@ -56,18 +58,21 @@ void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){
 ;
 
 void SMNode::odom_callback(const nav_msgs::Odometry& msg){
-	float new_x = msg.pose.pose.position.x, new_y = msg.pose.pose.position.y;
-	float prev_theta = tf::getYaw(prev_sm_odom.orientation);
-	float sm_dist = distance(prev_sm_odom.position.x, new_x, prev_sm_odom.position.y, new_y);
-	// Apply the odometry motion model to get an initial estimate of the new position
-	float drot1 = atan2(new_y - prev_sm_odom.position.y, new_x - prev_sm_odom.position.x) - prev_theta;
-	float drot2 = tf::getYaw(msg.pose.pose.orientation) - prev_theta - drot1;
+	cur_odom = msg.pose.pose;
+	double new_x = cur_odom.position.x, new_y = cur_odom.position.y;
+	double prev_theta = tf::getYaw(prev_sm_odom.orientation), new_theta = tf::getYaw(cur_odom.orientation);
+	dx = new_x - prev_sm_odom.position.x;
+	dy = new_y - prev_sm_odom.position.y;
+	dt = new_theta - prev_theta;
 	//
-	cur_sm_pose.x += sm_dist * cos(prev_theta + drot1);
-	cur_sm_pose.y += sm_dist * sin(prev_theta + drot1);
-	cur_sm_pose.theta += drot1 + drot2;
-	// Ready to do some scanmatching!
-	prev_sm_odom = msg.pose.pose;
+	double drot1 = atan2(new_y - prev_sm_odom.position.y, new_x - prev_sm_odom.position.x) - prev_theta;
+	double dtrans = distance(prev_sm_odom.position.x, new_x, prev_sm_odom.position.y, new_y);
+	double drot2 = new_theta - prev_theta - drot1;
+	est_sm_pose.x = cur_sm_pose.x + dtrans * cos(cur_sm_pose.theta + drot1);
+	est_sm_pose.y = cur_sm_pose.y + dtrans * sin(cur_sm_pose.theta + drot1);
+	est_sm_pose.theta = cur_sm_pose.theta + drot1 + drot2;	
+	//
+	prev_sm_odom = cur_odom;
 	sm_odom_updated = true;
 }
 ;

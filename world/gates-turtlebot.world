@@ -1,0 +1,73 @@
+define block model
+(
+  size [0.500 0.500 0.500]
+  gui_nose 0
+)
+
+define hokuyo ranger
+(
+  sensor(
+    range [0 4.0]
+    fov 240.25
+    samples 668
+  )
+  color "black"
+  size [ 0.020 0.020 0.050 ]
+)
+
+define turtlebot position
+(
+  localization "odom"
+  odom_error [0.01 0.05 0.01 0.02 0.5 1.0]
+  size [0.350 0.350 0.450]
+  origin [0.000 0.000 0.000 0.000]
+  hokuyo(pose [ 0.000 0.000 0.000 0.000 ])
+  gui_nose 1
+  drive "diff"
+  bitmap "turtlebot.png"
+)
+
+
+define floorplan model
+(
+  # sombre, sensible, artistic
+  color "gray30"
+
+  # most maps will need a bounding box
+  boundary 1
+
+  gui_nose 0
+  gui_grid 0
+
+  gui_outline 0
+  gripper_return 0
+  fiducial_return 0
+  laser_return 1
+)
+
+# set the resolution of the underlying raytrace model in meters
+resolution 0.01
+
+interval_sim 50  # simulation timestep in milliseconds
+
+
+window
+( 
+  size [ 745 448 ] 
+  # This is in radians, not degrees like everything else!!!
+  rotate [ 0.000 -0.570 ] 
+  scale 14.368 
+)
+
+# load an environment bitmap
+floorplan
+( 
+  name "gates-basement"
+  bitmap "gates-full-grayscale.png"
+  size [53.600 53.000 0.500]
+  pose [0.000 0.000 0.000 90.000]
+)
+
+# throw in a robot and block
+turtlebot( pose [ 14.491 7.804 0.000 180.000 ] name "tbot1" color "blue")
+block( pose [ -20.700 -4.500 0.000 180.000 ] color "red")
