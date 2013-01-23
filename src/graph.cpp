@@ -39,6 +39,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
         e->child_id = n->id;
         e->parent_id = last_node->id;
         GraphPose last_pose = last_node->graph_pose;
+        ScanMatcher matcher;
         bool result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
 	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
@@ -82,7 +83,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
 	    edge_list.push_back(e);
         node_list.push_back(n);
         last_node = n;
-        if(idCounter % 3 == 0 && distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
+        if(distance(pose.x, last_pose.x, pose.y, last_pose.y) > 0) {
              addNearbyConstraints(8, 1, 2, 0.2, 0.2);
         } 
     } else {
@@ -104,6 +105,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
     Node* n;
+    ScanMatcher matcher;
     for(int i = 0; i < (int)(node_list.size() - close_limit); i += step_size) {
         n = node_list[i];
         if (n->id == last_node->id)

@@ -5,7 +5,7 @@ SMNode::SMNode(ros::NodeHandle& nh) {
 	laserScan_Sub = nh.subscribe("base_scan", 1, &SMNode::laserScan_callback, this);
 	odometry_Sub = nh.subscribe("odom", 1, &SMNode::odom_callback, this);
 	//
-	pose_publisher = nh.advertise<PoseStamped>("/last_pose", 1);
+	pose_publisher = nh.advertise<PoseStamped>("last_pose", 1);
 	//
 	first_scan = true;
 	// Set the initial pose for the graph and scanmatcher to 0,0,0
@@ -13,6 +13,7 @@ SMNode::SMNode(ros::NodeHandle& nh) {
 	cur_sm_pose.y = 0.;
 	cur_sm_pose.theta = 0;
 	prev_sm_pose = cur_sm_pose;
+	est_sm_pose = cur_sm_pose;
 	//
 	prev_sm_odom.position.x = 0;
 	prev_sm_odom.position.y = 0;
@@ -24,7 +25,7 @@ SMNode::SMNode(ros::NodeHandle& nh) {
 double dx = 0, dy = 0, dt = 0;
 void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){	
 	// Check if we will perform scanmatching
-	if(!first_scan && sm_odom_updated) {
+	if(!first_scan) {
 		//ROS_INFO("Graphslam scanmatching!");
 		double mean[3], error;
 		LaserScan scan = *msg, ref_scan = *cur_sm_scan;
@@ -41,8 +42,8 @@ void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){
 			ROS_WARN("Using estimated pose: x %f y: %f t: %f", cur_sm_pose.x, cur_sm_pose.y, cur_sm_pose.theta);
 		}
 		// Check if we should update the reference scan to a new frame
-		if(distance(cur_sm_pose.x, prev_sm_pose.x, cur_sm_pose.y, prev_sm_pose.y) > 0.1 
-			|| abs(rot_distance(cur_sm_pose.theta, prev_sm_pose.theta)) > 0.1) {
+		if(distance(cur_sm_pose.x, prev_sm_pose.x, cur_sm_pose.y, prev_sm_pose.y) > 0.05 
+			|| abs(rot_distance(cur_sm_pose.theta, prev_sm_pose.theta)) > 0.02) {
 			prev_sm_pose = cur_sm_pose;
 			cur_sm_scan = msg;
 		}
@@ -72,7 +73,6 @@ void SMNode::odom_callback(const nav_msgs::Odometry& msg){
 	est_sm_pose.y = cur_sm_pose.y + dtrans * sin(cur_sm_pose.theta + drot1);
 	est_sm_pose.theta = cur_sm_pose.theta + drot1 + drot2;	
 	//
-	prev_sm_odom = cur_odom;
 	sm_odom_updated = true;
 }
 ;
@@ -109,7 +109,6 @@ void SMNode::spin() {
 			sm_pose_updated = false;
 		}
 		//
-		//rate.sleep(); // Sleep for the rest of the cycle, to enforce the FSM loop rate
 	}
 }
 ;

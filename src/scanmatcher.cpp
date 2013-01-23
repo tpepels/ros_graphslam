@@ -5,6 +5,7 @@
 #include <math.h>
 
 ScanMatcher::ScanMatcher() {
+  new_pose_t.setIdentity();
   //
   input.laser[0] = 0.0;
   input.laser[1] = 0.0;
@@ -83,12 +84,12 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
   input.first_guess[2] = tf::getYaw(change_t.getRotation()); 
   // Scan matching by ICP
   sm_icp(&input, &output);
-  //
   if(output.valid) {
-    // These values are used as the constraint for the graph-edge
+    // Raw output
     outp[0] = output.x[0];
     outp[1] = output.x[1];
     outp[2] = output.x[2];
+    //
     error = output.error;
     //
     tf::Transform output_t;
@@ -98,7 +99,9 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
     mean[0] = new_pose_t.getOrigin().getX();
     mean[1] = new_pose_t.getOrigin().getY();
     mean[2] = tf::getYaw(new_pose_t.getRotation());
-
+    //
+    // ROS_INFO("Error %2.4f, nvalid %d", error, output.nvalid);
+    //
     if(input.do_compute_covariance == 1) {
       //Set covariance
       unsigned int rows = output.cov_x_m->size1, cols = output.cov_x_m->size2;
@@ -137,6 +140,7 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   // ROS_INFO("Invalid: %f", invalid_rate);
   // Transforms for the new pose and reference pose
   createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  //new_pose_t.setIdentity();
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
   input.min_reading = scan_to_match.range_min + 0.01;
@@ -146,8 +150,8 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.epsilon_xy = 0.00001;
   input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 50.0;
-  input.max_linear_correction = 0.5;
+  input.max_angular_correction_deg = 90.0;
+  input.max_linear_correction = 0.9;
   input.max_correspondence_dist = 0.7;
   
   //Calculate change in position
@@ -170,7 +174,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, double change_x, double ch
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
   // Transforms for the new pose and reference pose
-  createTfFromXYTheta(prev_pose.x, prev_pose.y, prev_pose.theta, new_pose_t);
+  // createTfFromXYTheta(prev_pose.x, prev_pose.y, prev_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
   input.min_reading = scan_to_match.range_min + 0.01;
