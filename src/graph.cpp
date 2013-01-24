@@ -43,7 +43,13 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan& scan){
         e->parent_id = last_node->id;
         GraphPose last_pose = last_node->graph_pose;
         ScanMatcher matcher;
-        bool result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
+
+        bool result = false;
+        try {
+            result = matcher.graphScanMatch(n->laser_scan, n->graph_pose, last_node->laser_scan, last_node->graph_pose, mean, covariance, output, error);
+        } catch (int e) {
+            // nothing
+        }
 	    // ROS_INFO("Graph SM Error %f", error);
         // Match the new node's scans to previous scans and add edges according
         if(result) {
@@ -108,7 +114,6 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
     // Look for nodes that are nearby
     double distance, dt, dx, dy, error;
     Node* n;
-    ScanMatcher matcher;
     for(int i = 0; i < (int)(node_list.size() - close_limit); i += step_size) {
         n = node_list[i];
         if (n->id == last_node->id)
@@ -137,6 +142,7 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         double mean[3], output[3];
         double cov[3][3];
         try {
+            ScanMatcher matcher;
             if(!exists && matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
                 // ROS_INFO("SM Error %f", error);
                 // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher

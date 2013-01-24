@@ -65,12 +65,23 @@ void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){
 		cur_msg.scan = *msg;
 		// Check if we should update the reference scan to a new frame
 		if(distance(cur_sm_pose.x, prev_sm_pose.x, cur_sm_pose.y, prev_sm_pose.y) > 0.1 
-			|| abs(rot_distance(cur_sm_pose.theta, prev_sm_pose.theta)) > 0.1) {
+			|| abs(rot_distance(cur_sm_pose.theta, prev_sm_pose.theta)) > 0.15) {
 			prev_sm_pose = cur_sm_pose;
 			cur_sm_scan = msg;
 		}
-		sm_pose_updated = true;
 		prev_sm_odom = cur_odom;
+
+		// Publish the lase scanmatching pose
+		pose_publisher.publish(cur_msg);
+		last_pose_publisher.publish(cur_msg.pose);
+		//
+		if(sm_odom_updated) {
+			tf_map_to_odom_.stamp_ = ros::Time::now();
+			tf_map_to_odom_.setOrigin(tf::Vector3(cur_sm_pose.x - cur_odom.position.x, cur_sm_pose.y - cur_odom.position.y, 0));
+			double theta = rot_distance(cur_sm_pose.theta, tf::getYaw(cur_odom.orientation));
+			tf_map_to_odom_.setRotation(tf::createQuaternionFromYaw(theta));
+			tf_br_.sendTransform(tf::StampedTransform(tf_map_to_odom_, ros::Time::now(), "map", "odom"));
+		}
 	}
 	// Store the first reference scan for later use
 	if(first_scan) {
@@ -124,34 +135,24 @@ float SMNode::rot_distance(float theta1, float theta2) {
 	return rot_dist;
 }
 ;
-
+/*
 void SMNode::spin() {
 	//ros::Rate rate(100); // Specify the FSM loop rate in Hz
 	while (ros::ok()) { // Keep spinning loop until user presses Ctrl+C
 		ros::spinOnce(); // Need to call this function often to allow ROS to process incoming messages
 		if(sm_pose_updated) {
-			// Publish the lase scanmatching pose
-			pose_publisher.publish(cur_msg);
-			last_pose_publisher.publish(cur_msg.pose);
-			sm_pose_updated = false;
-			 //
-  			tf_map_to_odom_.stamp_ = ros::Time::now();
-  			tf_map_to_odom_.setOrigin(tf::Vector3(cur_sm_pose.x - cur_odom.position.x, cur_sm_pose.y - cur_odom.position.y, 0));
-  			double theta = rot_distance(cur_sm_pose.theta, tf::getYaw(cur_odom.orientation));
-  			tf_map_to_odom_.setRotation(tf::createQuaternionFromYaw(theta));
-  			//
-  			tf_br_.sendTransform(tf::StampedTransform(tf_map_to_odom_, ros::Time::now(), "map", "odom"));			
+	
 			//ROS_INFO("Pose published");
 		}
 	}
 }
 ;
-
+*/
 int main(int argc, char **argv){
 	ros::init(argc, argv, "sm_node");
 	ros::NodeHandle n;
 	SMNode sm_node(n);
-	sm_node.spin(); // Execute FSM loop
+	ros::spin();
 	return 0;
 }
 ;

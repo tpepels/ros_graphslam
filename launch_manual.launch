@@ -8,13 +8,17 @@
   	<param name="base_watchdog_timeout" value=".2"/>
   </node>
   
-  <node pkg="graphslam" type="sm_node" name="sm_node" output="screen" />
+  <node pkg="graphslam" type="sm_node" name="sm_node" output="screen">
+    <param name="scan_topic" value="base_scan" />
+    <param name="max_laser_range" value="4.7" />
+    <param name="min_laser_range" value="0.01" />
+  </node>
   
   <node pkg="graphslam" type="graphslam" name="graphslam" output="screen">
   	<param name="resolution" value=".05" />
   	<param name="scan_topic" value="base_scan" />
-  	<param name="max_laser_range" value="4.5" />
-  	<param name="min_laser_range" value="0.15" />
+  	<param name="max_laser_range" value="4.7" />
+  	<param name="min_laser_range" value="0.01" />
   </node>
 
    <node pkg="turtlebot_slam" type="turtlebot_exploration" name="turtlebot_slam" output="screen" />

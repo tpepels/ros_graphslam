@@ -32,7 +32,7 @@ ScanMatcher::ScanMatcher() {
   input.use_ml_weights = 0;
   input.use_sigma_weights = 0;
   //
-  min_laser_range = 0.1;
+  min_laser_range = 0.05;
   max_laser_range = 4.5;
 }
 ;
@@ -45,7 +45,7 @@ double ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
     double range = scan.ranges[i];
-    if(range > 0.15 && range < 5.) {
+    if(range > min_laser_range && range < max_laser_range) {
       ldp->valid[i] = 1;
       ldp->readings[i] = range;
     } else {
@@ -142,20 +142,20 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   convertScantoDLP(scan_to_match, current_ldp);
   // ROS_INFO("Invalid: %f", invalid_rate);
   // Transforms for the new pose and reference pose
-  createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
-  //new_pose_t.setIdentity();
+  // createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  new_pose_t.setIdentity();
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = 0.15;
-  input.max_reading = 5.;
+  input.min_reading = min_laser_range;
+  input.max_reading = max_laser_range;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 20;
-  input.epsilon_xy = 0.00001;
-  input.epsilon_theta = 0.00001;
+  input.max_iterations = 15;
+  input.epsilon_xy = 0.000001;
+  input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 160.0;
-  input.max_linear_correction = 1.;
-  input.max_correspondence_dist = 1.;
+  input.max_angular_correction_deg = 100.0;
+  input.max_linear_correction = .8;
+  input.max_correspondence_dist = .8;
   
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
@@ -180,15 +180,15 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, double change_x, double ch
   // createTfFromXYTheta(prev_pose.x, prev_pose.y, prev_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = 0.15;
-  input.max_reading = 5.;
+  input.min_reading = min_laser_range;
+  input.max_reading = max_laser_range;
   input.max_iterations = 15;
   input.epsilon_xy = 0.0000001;
   input.epsilon_theta = 0.0000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 50.0;
-  input.max_linear_correction = 0.5;
-  input.max_correspondence_dist = 0.4;
+  input.max_angular_correction_deg = 30.0;
+  input.max_linear_correction = 0.6;
+  input.max_correspondence_dist = 0.5;
   //
   double covariance[3][3], output[3];
   bool result = processScan(current_ldp, ref_ldp, change_x, change_y, change_theta, mean, covariance, output, error);
