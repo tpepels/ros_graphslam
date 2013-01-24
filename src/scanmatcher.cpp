@@ -187,7 +187,7 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, double change_x, double ch
   input.epsilon_theta = 0.0000001;
   input.do_compute_covariance = 0;
   input.max_angular_correction_deg = 30.0;
-  input.max_linear_correction = 0.6;
+  input.max_linear_correction = 0.3;
   input.max_correspondence_dist = 0.5;
   //
   double covariance[3][3], output[3];

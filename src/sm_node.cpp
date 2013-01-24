@@ -87,6 +87,11 @@ void SMNode::laserScan_callback(const LaserScan::ConstPtr& msg){
 	if(first_scan) {
 		first_scan = false;
 		cur_sm_scan = msg;
+		//
+		tf_map_to_odom_.stamp_ = ros::Time::now();
+		tf_map_to_odom_.setOrigin(tf::Vector3(0,0,0));
+		tf_map_to_odom_.setRotation(tf::createQuaternionFromYaw(0));
+		tf_br_.sendTransform(tf::StampedTransform(tf_map_to_odom_, ros::Time::now(), "map", "odom"));
 	}
 }
 ;
@@ -95,6 +100,7 @@ void SMNode::odom_callback(const nav_msgs::Odometry& msg){
 	if(!sm_odom_updated) {
 		prev_sm_odom = msg.pose.pose;
 		init_odom = msg.pose.pose;
+		cur_odom = msg.pose.pose;
 		sm_odom_updated = true;
 	} else {
 		cur_odom = msg.pose.pose;
