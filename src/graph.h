@@ -42,7 +42,6 @@ class Graph {
 	private:
 		//
 		unsigned int idCounter;
-		ScanMatcher matcher;
 		double resolution, range_threshold;
 		// ScanMatcher matcher;
 		ScanGrid scanToOccGrid(const LaserScan::ConstPtr& scan, GraphPose& pose);

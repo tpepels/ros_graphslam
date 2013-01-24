@@ -5,6 +5,7 @@
 #include <math.h>
 
 ScanMatcher::ScanMatcher() {
+  new_pose_t.setIdentity();
   //
   input.laser[0] = 0.0;
   input.laser[1] = 0.0;
@@ -33,19 +34,21 @@ ScanMatcher::ScanMatcher() {
 }
 ;
 
-void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
+double ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   unsigned int numberOfScans = scan.ranges.size();
   ldp = ld_alloc_new(numberOfScans);
+  double invalid_scans = 0;
   //
   for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
     double range = scan.ranges[i];
-    if(range > scan.range_min && range < scan.range_max) {
+    if(range > (scan.range_min + 0.01) && range < (scan.range_max * 0.99)) {
       ldp->valid[i] = 1;
       ldp->readings[i] = range;
     } else {
       ldp->valid[i] = 0;
       ldp->readings[i] = -1;
+      invalid_scans++;
     }
     //Set angle
     ldp->theta[i] = scan.angle_min + i * scan.angle_increment;
@@ -58,31 +61,35 @@ void ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   ldp->odometry[0] = 0.0;
   ldp->odometry[1] = 0.0;
   ldp->odometry[2] = 0.0;
-  //
   ldp->true_pose[0] = 0.0;
   ldp->true_pose[1] = 0.0;
   ldp->true_pose[2] = 0.0;
+  ldp->estimate[0] = 0.0;
+  ldp->estimate[1] = 0.0;
+  ldp->estimate[2] = 0.0;
+  return invalid_scans / ((double) numberOfScans);
 }
 ;
 
 bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double change_y, double change_theta, double mean[], double covariance[][3], double outp[], double& error){
   input.laser_ref = ref_ldp;
   input.laser_sens = ldp;
-  // ROS_INFO("SM change_x: %f, change_y: %f, change_t: %f", change_x, change_y, change_theta);
-  //Set initial estimate of input
-  input.first_guess[0] = change_x;
-  input.first_guess[1] = change_y;
-  input.first_guess[2] = change_theta; 
-  // ROS_INFO("SM first_guess_x: %f, first_guess_y: %f, change_t: %f", input.first_guess[0], input.first_guess[1], input.first_guess[2]);
-  //Finally, perform scan matching.
-  sm_result output;
-  sm_icp(&input, &output);
   //
-  if(output.valid){
-    // These values are used as the constraint for the graph-edge
+  tf::Transform change_t;
+  createTfFromXYTheta(change_x, change_y, change_theta, change_t);
+  change_t = change_t * (new_pose_t * ref_pose_t.inverse());
+  //Set initial estimate of input
+  input.first_guess[0] = change_t.getOrigin().getX();
+  input.first_guess[1] = change_t.getOrigin().getY();
+  input.first_guess[2] = tf::getYaw(change_t.getRotation()); 
+  // Scan matching by ICP
+  sm_icp(&input, &output);
+  if(output.valid) {
+    // Raw output
     outp[0] = output.x[0];
     outp[1] = output.x[1];
     outp[2] = output.x[2];
+    //
     error = output.error;
     //
     tf::Transform output_t;
@@ -92,7 +99,8 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
     mean[0] = new_pose_t.getOrigin().getX();
     mean[1] = new_pose_t.getOrigin().getY();
     mean[2] = tf::getYaw(new_pose_t.getRotation());
-    // ROS_INFO("SM mean_x: %2.4f, mean_y: %2.4f, mean_t: %2.4f, error: %2.4f", mean[0], mean[1], mean[2], output.error);
+    //
+    // ROS_INFO("Error %2.4f, nvalid %d", error, output.nvalid);
     //
     if(input.do_compute_covariance == 1) {
       //Set covariance
@@ -100,9 +108,7 @@ bool ScanMatcher::processScan(LDP& ldp, LDP& ref_ldp, double change_x, double ch
       for(unsigned int i = 0; i < cols; i++) {
         for(unsigned int j = 0; j < rows; j++) {
           covariance[i][j] = gsl_matrix_get(output.cov_x_m, i, j);
-          // std::cout << covariance[i][j] << " ";
         }
-        // std::cout << endl;
       }
     }
   }
@@ -131,29 +137,23 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
+  // ROS_INFO("Invalid: %f", invalid_rate);
   // Transforms for the new pose and reference pose
   createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  //new_pose_t.setIdentity();
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = scan_to_match.range_min;
-  input.max_reading = scan_to_match.range_max;
+  input.min_reading = scan_to_match.range_min + 0.01;
+  input.max_reading = scan_to_match.range_max * 0.99;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 30;
-  input.epsilon_xy = 0.000001;
-  input.epsilon_theta = 0.000001;
+  input.max_iterations = 20;
+  input.epsilon_xy = 0.00001;
+  input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 20.0;
-  input.max_linear_correction = 0.2;
-  input.max_correspondence_dist = 0.7;
-  /*
-  double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
-  double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
-  double drot2 = new_pose.theta - ref_pose.theta - drot1;
-  //
-  double dx = dtrans * cos(ref_pose.theta + drot1);
-  double dy = dtrans * sin(ref_pose.theta + drot1);
-  double dt = drot1 + drot2;
-  */
+  input.max_angular_correction_deg = 160.0;
+  input.max_linear_correction = 1.;
+  input.max_correspondence_dist = 1.;
+  
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;
   double dy = new_pose.y - ref_pose.y;
@@ -164,51 +164,30 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   } else if (dt < -PI) {
       dt += 2 * PI;
   }
-  
   bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, outp, error);
   return result;
 };
 
-bool ScanMatcher::scanMatch(LaserScan& scan_to_match, GraphPose& new_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double& error) {
+bool ScanMatcher::scanMatch(LaserScan& scan_to_match, double change_x, double change_y, double change_theta, GraphPose& prev_pose, LaserScan& reference_scan, GraphPose& ref_pose, double mean[3], double& error) {
   LDP ref_ldp;
   convertScantoDLP(reference_scan, ref_ldp);
   LDP current_ldp;
   convertScantoDLP(scan_to_match, current_ldp);
   // Transforms for the new pose and reference pose
-  createTfFromXYTheta(new_pose.x, new_pose.y, new_pose.theta, new_pose_t);
+  // createTfFromXYTheta(prev_pose.x, prev_pose.y, prev_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = scan_to_match.range_min;
-  input.max_reading = scan_to_match.range_max;
+  input.min_reading = scan_to_match.range_min + 0.01;
+  input.max_reading = scan_to_match.range_max * 0.99;
   input.max_iterations = 10;
   input.epsilon_xy = 0.000001;
   input.epsilon_theta = 0.000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 40.0;
-  input.max_linear_correction = 0.5;
+  input.max_angular_correction_deg = 30.0;
+  input.max_linear_correction = 0.3;
   input.max_correspondence_dist = 0.4;
-  /*
-  double drot1 = atan2(new_pose.y - ref_pose.y, new_pose.x - ref_pose.x) - ref_pose.theta;
-  double dtrans = sqrt(pow(new_pose.x - ref_pose.x, 2) + pow(new_pose.y - ref_pose.y, 2));
-  double drot2 = new_pose.theta - ref_pose.theta - drot1;
   //
-  double dx = dtrans * cos(ref_pose.theta + drot1);
-  double dy = dtrans * sin(ref_pose.theta + drot1);
-  double dt = drot1 + drot2;
-  */
-  //Calculate change in position
-  double dx = new_pose.x - ref_pose.x;
-  double dy = new_pose.y - ref_pose.y;
-  double dt = new_pose.theta - ref_pose.theta;
-  //
-  if (dt >= PI) {
-      dt -= 2 * PI;
-  } else if (dt < -PI) {
-      dt += 2 * PI;
-  }
-  
-  double covariance[3][3];
-  double output[3];
-  bool result = processScan(current_ldp, ref_ldp, dx, dy, dt, mean, covariance, output, error);
+  double covariance[3][3], output[3];
+  bool result = processScan(current_ldp, ref_ldp, change_x, change_y, change_theta, mean, covariance, output, error);
   return result;
 };

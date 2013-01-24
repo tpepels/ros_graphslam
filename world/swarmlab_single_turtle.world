@@ -4,8 +4,20 @@ interval_sim 50 # simulation timestep in milliseconds
 
 window
 ( 
-  size [ 554 447 ] 
-  scale 21.642 
+  size [ 877 1024 ] 
+  scale 51.031 
+)
+
+define block model
+(
+  size [0.300 0.300 0.500]
+  gui_nose 0
+)
+
+define table model
+(
+  size [0.400 1.500 0.500]
+  gui_nose 0
 )
 
 define map model
@@ -55,4 +67,20 @@ define turtlebot position
   bitmap "robot.png"
 )
 
-turtlebot( pose [0.843 6.314 0.000 178.056] color "red")
+turtlebot( pose [1.617 -0.623 0.000 -178.141] color "red")
+block( pose [ -1.362 2.194 0.000 180.000 ] color "red")
+block( pose [ -3.241 -1.581 0.000 170.000 ] color "blue")
+block( pose [ -3.399 -4.316 0.000 120.000 ] color "yellow")
+block( pose [ -3.189 2.585 0.000 100.000 ] color "green")
+block( pose [ -2.251 4.533 0.000 80.000 ] color "purple")
+block( pose [ -0.755 3.658 0.000 -170.000 ] color "orange")
+block( pose [ 1.158 -3.874 0.000 80.000 ] color "black")
+block( pose [ 2.948 -4.454 0.000 -170.000 ] color "gray")
+
+block( pose [ -0.388 -7.616 0.000 80.000 ] color "purple")
+block( pose [ -3.246 6.833 0.000 -170.000 ] color "orange")
+block( pose [ -1.585 -3.991 0.000 80.000 ] color "black")
+block( pose [ 3.843 -0.829 0.000 -170.000 ] color "gray")
+
+table( pose [ -3.148 1.131 0.000 92.597 ] color "gray")
+table( pose [ -1.061 -1.612 0.000 -89.786 ] color "gray")
