@@ -31,6 +31,9 @@ ScanMatcher::ScanMatcher() {
   input.debug_verify_tricks = 0;
   input.use_ml_weights = 0;
   input.use_sigma_weights = 0;
+  //
+  min_laser_range = 0.1;
+  max_laser_range = 4.5;
 }
 ;
 
@@ -42,7 +45,7 @@ double ScanMatcher::convertScantoDLP(sensor_msgs::LaserScan& scan, LDP& ldp){
   for(unsigned int i = 0; i < numberOfScans; i++) {
     //Set range to -1 if if it exceeds the bounds of the laser scanner.
     double range = scan.ranges[i];
-    if(range > (scan.range_min + 0.01) && range < (scan.range_max * 0.99)) {
+    if(range > 0.15 && range < 5.) {
       ldp->valid[i] = 1;
       ldp->readings[i] = range;
     } else {
@@ -143,8 +146,8 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   //new_pose_t.setIdentity();
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = scan_to_match.range_min + 0.01;
-  input.max_reading = scan_to_match.range_max * 0.99;
+  input.min_reading = 0.15;
+  input.max_reading = 5.;
   // Allow more distance grom the solution as the scan-matching distance is higher
   input.max_iterations = 20;
   input.epsilon_xy = 0.00001;
@@ -177,14 +180,14 @@ bool ScanMatcher::scanMatch(LaserScan& scan_to_match, double change_x, double ch
   // createTfFromXYTheta(prev_pose.x, prev_pose.y, prev_pose.theta, new_pose_t);
   createTfFromXYTheta(ref_pose.x, ref_pose.y, ref_pose.theta, ref_pose_t);
   // All scans should be between this interval
-  input.min_reading = scan_to_match.range_min + 0.01;
-  input.max_reading = scan_to_match.range_max * 0.99;
-  input.max_iterations = 10;
-  input.epsilon_xy = 0.000001;
-  input.epsilon_theta = 0.000001;
+  input.min_reading = 0.15;
+  input.max_reading = 5.;
+  input.max_iterations = 15;
+  input.epsilon_xy = 0.0000001;
+  input.epsilon_theta = 0.0000001;
   input.do_compute_covariance = 0;
-  input.max_angular_correction_deg = 30.0;
-  input.max_linear_correction = 0.3;
+  input.max_angular_correction_deg = 50.0;
+  input.max_linear_correction = 0.5;
   input.max_correspondence_dist = 0.4;
   //
   double covariance[3][3], output[3];

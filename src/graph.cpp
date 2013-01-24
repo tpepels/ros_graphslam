@@ -8,11 +8,14 @@ const int P_INF = 9999999;
 typedef g2o::BlockSolver< g2o::BlockSolverTraits<-1, -1> >  SlamBlockSolver;
 typedef g2o::LinearSolverCSparse< SlamBlockSolver::PoseMatrixType> SlamLinearSolver;
 
-Graph::Graph(double resolution, double range_threshold) {
+Graph::Graph(double resolution, double range_threshold, double max_range, double min_range) {
     //ROS_INFO("Graph entering constructor");
 	this->resolution = resolution;
 	this->range_threshold = range_threshold;
     this->idCounter = 1;
+    //
+    this->min_range = min_range;
+    this->max_range = max_range;
 };
 
 Graph::~Graph(){
@@ -20,7 +23,7 @@ Graph::~Graph(){
     edge_list.clear();
 }
 
-void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan){
+void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan& scan){
     //ROS_INFO("Graph entering addNode");
 	Node * n = new Node();
     n->id = this->idCounter;
@@ -28,7 +31,7 @@ void Graph::addNode(GraphPose pose, const sensor_msgs::LaserScan::ConstPtr& scan
     // set the true pose to the odometry initially
     n->graph_pose = pose;
     // Store the scans
-	n->laser_scan = *scan;
+	n->laser_scan = scan;
     //
     if(node_list.size() > 0) {
         double mean[3], output[3];
@@ -133,27 +136,31 @@ void Graph::addNearbyConstraints(int close_limit, int step_size, double dist_lim
         }
         double mean[3], output[3];
         double cov[3][3];
-        if(!exists && matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
-            // ROS_INFO("SM Error %f", error);
-            // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
-            if (abs(dx - output[0]) <= min_dist_delta && abs(dy - output[1]) <= min_dist_delta && abs(dt - output[2]) < min_angle_delta) {
-                // Add the link between the current and the previous node
-                Edge * e = new Edge();
-                e->child_id = last_id;
-                e->parent_id = n->id;
-                //
-                // memcpy(e->mean, output, sizeof(double) * 3);
-                g2o::SE2 se_prev(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
-                g2o::SE2 se_new(last_pose.x, last_pose.y, last_pose.theta);
-                g2o::SE2 transf = se_prev.inverse() * se_new;
-                //
-                e->mean[0] = transf[0];
-                e->mean[1] = transf[1];
-                e->mean[2] = transf[2];
-                memcpy(e->covariance, cov, sizeof(double) * 9);
-                edge_list.push_back(e);
-                // ROS_INFO("Found a link between nodes.");
+        try {
+            if(!exists && matcher.graphScanMatch(last_scan, last_pose, n->laser_scan, n->graph_pose, mean, cov, output, error)) {
+                // ROS_INFO("SM Error %f", error);
+                // Check if the calculated distance corresponds with the distance mean calculated by the scanmatcher
+                if (abs(dx - output[0]) <= min_dist_delta && abs(dy - output[1]) <= min_dist_delta && abs(dt - output[2]) < min_angle_delta) {
+                    // Add the link between the current and the previous node
+                    Edge * e = new Edge();
+                    e->child_id = last_id;
+                    e->parent_id = n->id;
+                    //
+                    // memcpy(e->mean, output, sizeof(double) * 3);
+                    g2o::SE2 se_prev(n->graph_pose.x, n->graph_pose.y, n->graph_pose.theta);
+                    g2o::SE2 se_new(last_pose.x, last_pose.y, last_pose.theta);
+                    g2o::SE2 transf = se_prev.inverse() * se_new;
+                    //
+                    e->mean[0] = transf[0];
+                    e->mean[1] = transf[1];
+                    e->mean[2] = transf[2];
+                    memcpy(e->covariance, cov, sizeof(double) * 9);
+                    edge_list.push_back(e);
+                    // ROS_INFO("Found a link between nodes.");
+                }
             }
+        } catch (int e) {
+            //
         }
     }
 }
@@ -192,7 +199,7 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
     unsigned int map_size = (unsigned int)(map_height * map_width);
     // ROS_INFO("Graph map size: %d", map_size);
     //
-    cur_map.header.frame_id = "/odom";
+    cur_map.header.frame_id = "/map";
     cur_map.header.stamp = ros::Time().now();
     cur_map.info.height = map_height;
     cur_map.info.width = map_width;
@@ -260,27 +267,27 @@ void Graph::generateMap(nav_msgs::OccupancyGrid& cur_map) {
 ;
 
 // Take a scan as input, generate a small, local occupancy grid
-ScanGrid Graph::scanToOccGrid(const sensor_msgs::LaserScan::ConstPtr& scan, GraphPose& pose) {
+ScanGrid Graph::scanToOccGrid(const sensor_msgs::LaserScan& scan, GraphPose& pose) {
     //ROS_INFO("Graph entering scanToOccGrid");
 	ScanGrid new_grid;
-	double angle_incr = scan->angle_increment;
+	double angle_incr = scan.angle_increment;
 	// First we need to know the size and bounds of the grid.
     double xmax = N_INF,xmin = P_INF,ymax = N_INF,ymin = P_INF;
-    double scan_angle, min_angle = scan->angle_min;
-    int num_scans = scan->ranges.size();
+    double scan_angle, min_angle = scan.angle_min;
+    int num_scans = scan.ranges.size();
     //ROS_INFO("Graph Generating local occ grid at x: %f, y: %f t: %f.", pose.x, pose.y, pose.theta);
     // Get the scan positions the bound the grid
     for (int i = 0; i < num_scans; i++)
     {
         scan_angle = pose.theta + min_angle + i * angle_incr;
-        if (ymax < pose.y + scan->ranges[i] * sin(scan_angle))
-            ymax = pose.y + scan->ranges[i] * sin(scan_angle);
-        if (xmax < pose.x + scan->ranges[i] * cos(scan_angle))
-            xmax = pose.x + scan->ranges[i] * cos(scan_angle);
-        if (ymin > pose.y + scan->ranges[i] * sin(scan_angle))
-            ymin = pose.y + scan->ranges[i] * sin(scan_angle);
-        if (xmin > pose.x + scan->ranges[i] * cos(scan_angle))
-            xmin = pose.x + scan->ranges[i] * cos(scan_angle);
+        if (ymax < pose.y + scan.ranges[i] * sin(scan_angle))
+            ymax = pose.y + scan.ranges[i] * sin(scan_angle);
+        if (xmax < pose.x + scan.ranges[i] * cos(scan_angle))
+            xmax = pose.x + scan.ranges[i] * cos(scan_angle);
+        if (ymin > pose.y + scan.ranges[i] * sin(scan_angle))
+            ymin = pose.y + scan.ranges[i] * sin(scan_angle);
+        if (xmin > pose.x + scan.ranges[i] * cos(scan_angle))
+            xmin = pose.x + scan.ranges[i] * cos(scan_angle);
     }
     // Initialize the grid, set the bounds relative to the odometry
     new_grid.ymax = round((ymax - pose.y) / resolution);
@@ -302,14 +309,13 @@ ScanGrid Graph::scanToOccGrid(const sensor_msgs::LaserScan::ConstPtr& scan, Grap
         new_grid.grid[i] = -1;
     }
     //
-   	double max_range = scan->range_max * range_threshold, measurement;
-   	double theta, x, y;
+   	double measurement, theta, x, y;
    	int row, col;
     for (int i = 0; i < num_scans; i++)
     {
-        measurement = scan->ranges[i];
+        measurement = scan.ranges[i];
         // Check if out of range, dont place an obstacle on the grid in this case
-        if (measurement > max_range)
+        if (measurement > max_range || measurement < min_range)
             continue;
         // Determine and set the location of the object in the local grid
         theta = pose.theta + min_angle + i * angle_incr;
@@ -329,16 +335,16 @@ ScanGrid Graph::scanToOccGrid(const sensor_msgs::LaserScan::ConstPtr& scan, Grap
             // We can skip positions we know are occupied
             if (new_grid.grid[index] == 100)
                 continue;
-            scan_theta = atan2(i - new_grid.ymin, j - new_grid.xmin) - pose.theta - scan->angle_min;
+            scan_theta = atan2(i - new_grid.ymin, j - new_grid.xmin) - pose.theta - scan.angle_min;
             scan_theta -= floor(scan_theta / PI / 2) * (PI * 2);
             // Check if the scan is out of bounds
-            scan_index = round(scan_theta / scan->angle_increment);
+            scan_index = round(scan_theta / scan.angle_increment);
             if (scan_index < 0|| scan_index >= num_scans) {
                 new_grid.grid[index] = -1;
                 continue;
             }
             //
-            range = scan->ranges[scan_index];
+            range = scan.ranges[scan_index];
             scan_dist = sqrt(pow(j - new_grid.xmin, 2) + pow(i - new_grid.ymin, 2));
             scan_end = range - (scan_dist * resolution);
             // If the end of the scan is outside the bounds of the grid, it will be unknown

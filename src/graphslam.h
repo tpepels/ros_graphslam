@@ -6,10 +6,12 @@
 #include "geometry_msgs/PoseArray.h"
 #include "sensor_msgs/LaserScan.h"
 #include "tf/transform_listener.h"
+#include "tf/transform_broadcaster.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/PoseArray.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "visualization_msgs/Marker.h"
+#include "graphslam/pose_laser.h"
 //
 #include "graph.h"
 #include "scanmatcher.h"
@@ -33,8 +35,10 @@ private:
 	ros::Publisher map_publish, pose_publish, graph_publish, pose_publisher;
 	// The last pose and corresponding scan
 	Pose prev_graph_pose;
-	LaserScan::ConstPtr cur_scan;
-	double resolution, min_node_dist, min_node_rot, range_t;
+	LaserScan cur_scan;
+	nav_msgs::OccupancyGrid cur_map;
+	double resolution, min_node_dist, min_node_rot, range_t, min_laser_range, max_laser_range;
+	string scan_topic;
 	int solve_after_nodes, solve_iterations;
 	//
 	GraphPose cur_sm_pose;
@@ -45,7 +49,7 @@ private:
 	float distance(float x1, float x2, float y1, float y2);
 	float rot_distance(float theta1, float theta2);
 	void laserScan_callback(const LaserScan::ConstPtr& msg);
-	void pose_callback(const PoseStamped& msg);
+	void pose_callback(const graphslam::pose_laser& msg);
 	void drawPoses();
 	void drawScans();
 	void rosToGraphPose(const Pose& ros_pose, GraphPose& g_pose);

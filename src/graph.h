@@ -34,17 +34,17 @@ class Graph {
 		vector<Edge*> edge_list;
 		Node * last_node;
 		//
-		Graph(double resolution, double range_threshold);
+		Graph(double resolution, double range_threshold, double max_range, double min_range);
 		~Graph();
-		void addNode(GraphPose pose, const LaserScan::ConstPtr& scan);
+		void addNode(GraphPose pose, const LaserScan& scan);
 		void generateMap(nav_msgs::OccupancyGrid& cur_map);
 		void solve(unsigned int iterations);
 	private:
 		//
 		unsigned int idCounter;
-		double resolution, range_threshold;
+		double resolution, range_threshold, max_range, min_range;
 		// ScanMatcher matcher;
-		ScanGrid scanToOccGrid(const LaserScan::ConstPtr& scan, GraphPose& pose);
+		ScanGrid scanToOccGrid(const LaserScan& scan, GraphPose& pose);
 		void addNearbyConstraints(int close_limit, int step_size, double dist_limit, double min_dist_delta, double min_angle_delta);
 		float rot_distance(float theta1, float theta2);
 		float distance(float x1, float x2, float y1, float y2);
