@@ -146,13 +146,13 @@ bool ScanMatcher::graphScanMatch(LaserScan& scan_to_match, GraphPose& new_pose, 
   input.min_reading = scan_to_match.range_min + 0.01;
   input.max_reading = scan_to_match.range_max * 0.99;
   // Allow more distance grom the solution as the scan-matching distance is higher
-  input.max_iterations = 10;
+  input.max_iterations = 20;
   input.epsilon_xy = 0.00001;
   input.epsilon_theta = 0.00001;
   input.do_compute_covariance = 1;
-  input.max_angular_correction_deg = 90.0;
-  input.max_linear_correction = 0.9;
-  input.max_correspondence_dist = 0.7;
+  input.max_angular_correction_deg = 160.0;
+  input.max_linear_correction = 1.;
+  input.max_correspondence_dist = 1.;
   
   //Calculate change in position
   double dx = new_pose.x - ref_pose.x;

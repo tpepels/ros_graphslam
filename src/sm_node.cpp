@@ -73,6 +73,10 @@ void SMNode::odom_callback(const nav_msgs::Odometry& msg){
 	est_sm_pose.y = cur_sm_pose.y + dtrans * sin(cur_sm_pose.theta + drot1);
 	est_sm_pose.theta = cur_sm_pose.theta + drot1 + drot2;	
 	//
+	//est_sm_pose.x = est_sm_pose.x + dtrans * cos(est_sm_pose.theta + drot1);
+	//est_sm_pose.y = est_sm_pose.y + dtrans * sin(est_sm_pose.theta + drot1);
+	//est_sm_pose.theta = est_sm_pose.theta + drot1 + drot2;
+	//prev_sm_odom = cur_odom;
 	sm_odom_updated = true;
 }
 ;
